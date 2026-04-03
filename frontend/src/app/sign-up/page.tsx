@@ -16,6 +16,11 @@ export default function SignUpPage() {
             formFieldLabel: "text-white/40 text-xs tracking-widest uppercase",
             formButtonPrimary: "bg-white text-black rounded-none hover:bg-white/90 font-semibold tracking-widest uppercase text-xs",
             footerActionLink: "text-white/40 hover:text-white/60",
+            formFieldLabel: "text-white/30 text-[10px] tracking-widest lowercase",
+            identityPreviewText: "text-white/60",
+            identityPreviewEditButton: "text-white/30",
+            dividerLine: "bg-white/5",
+            dividerText: "text-white/20",
           },
         }}
       />

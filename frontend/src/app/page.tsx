@@ -21,9 +21,11 @@ const SAMPLES = [
 
 export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false)
+  const [lastMangaId, setLastMangaId] = useState<string | null>(null)
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 40)
     window.addEventListener("scroll", fn)
+    setLastMangaId(localStorage.getItem("last_manga_id"))
     return () => window.removeEventListener("scroll", fn)
   }, [])
 
@@ -54,6 +56,11 @@ export default function LandingPage() {
           Create Your Manga
         </Link>
         <p className="text-white/15 text-[9px] mt-4 tracking-widest">2 pages free · No credit card needed</p>
+        {lastMangaId && (
+          <Link href={`/manga/${lastMangaId}`} className="text-[10px] tracking-widest uppercase text-white/25 hover:text-white/50 transition-colors mt-4 block">
+            Continue your manga →
+          </Link>
+        )}
       </section>
 
       {/* HOW IT WORKS */}

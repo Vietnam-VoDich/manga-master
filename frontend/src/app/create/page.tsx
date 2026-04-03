@@ -90,6 +90,7 @@ export default function CreatePage() {
       if (userId) fd.append("user_id", userId)
       if (photo) fd.append("photo", photo)
       const data = await api.createManga(fd)
+      localStorage.setItem("last_manga_id", data.manga_id)
       router.push(`/manga/${data.manga_id}`)
     } catch (e: any) {
       setError(e?.message ?? "Something went wrong. Please try again.")
