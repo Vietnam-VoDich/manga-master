@@ -20,7 +20,6 @@ export default function LoginPage() {
             identityPreviewEditButton: "text-white/30",
           },
         }}
-        redirectUrl="/dashboard"
       />
     </main>
   )
