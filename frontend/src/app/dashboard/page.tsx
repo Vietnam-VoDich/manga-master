@@ -1,6 +1,6 @@
 "use client"
 import { useUser, UserButton } from "@clerk/nextjs"
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { api } from "@/lib/api"
@@ -8,7 +8,7 @@ import { api } from "@/lib/api"
 type Manga = { id: string; title: string; subject_name: string; status: string; is_preview: boolean; created_at: string }
 type DBUser = { id: string; is_subscribed: boolean }
 
-export default function DashboardPage() {
+function DashboardInner() {
   const { user, isLoaded } = useUser()
   const params = useSearchParams()
   const [mangas, setMangas] = useState<Manga[]>([])
@@ -114,5 +114,13 @@ export default function DashboardPage() {
         </div>
       )}
     </main>
+  )
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="bg-black min-h-[100dvh] flex items-center justify-center"><div className="font-serif text-5xl text-white/10 animate-pulse">漫</div></div>}>
+      <DashboardInner />
+    </Suspense>
   )
 }
