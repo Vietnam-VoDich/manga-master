@@ -7,6 +7,7 @@ from services.image_service import generate_manga_image, manga_ify_photo
 from services.audio_service import generate_narration, generate_theme_music
 from services.storage_service import upload
 from core.auth import verify_clerk_token
+from typing import Optional
 
 router = APIRouter()
 
@@ -20,7 +21,8 @@ async def _build_manga(manga_id: str, photo_bytes: bytes | None, db: Session):
         manga.status = "generating"
         db.commit()
 
-        user = db.query(User).filter(User.id == manga.user_id).first()
+        # Guest or unsubscribed user = preview only (cover + 1 page)
+        user = db.query(User).filter(User.id == manga.user_id).first() if manga.user_id else None
         preview_only = not (user and user.is_subscribed)
 
         # 1. Story script
@@ -80,13 +82,13 @@ async def create_manga(
     background_tasks: BackgroundTasks,
     subject_name: str = Form(...),
     description: str = Form(...),
-    user_id: str = Form(...),
+    user_id: Optional[str] = Form(None),
     photo: UploadFile | None = File(None),
     db: Session = Depends(get_db),
-    _claims: dict = Depends(verify_clerk_token),
 ):
+    """No auth required — guests can generate a preview manga."""
     photo_bytes = await photo.read() if photo else None
-    manga = Manga(user_id=user_id, subject_name=subject_name, subject_description=description)
+    manga = Manga(user_id=user_id or None, subject_name=subject_name, subject_description=description)
     db.add(manga)
     db.commit()
     db.refresh(manga)
@@ -95,7 +97,8 @@ async def create_manga(
 
 
 @router.get("/{manga_id}")
-def get_manga(manga_id: str, db: Session = Depends(get_db), _claims: dict = Depends(verify_clerk_token)):
+def get_manga(manga_id: str, db: Session = Depends(get_db)):
+    """No auth required — guests can poll their manga status."""
     manga = db.query(Manga).filter(Manga.id == manga_id).first()
     if not manga:
         raise HTTPException(404, "Not found")

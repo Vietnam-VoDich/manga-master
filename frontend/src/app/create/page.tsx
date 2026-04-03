@@ -71,25 +71,23 @@ export default function CreatePage() {
     setError(null)
     setStep("generating")
     try {
+      // Try to get user_id if signed in, but don't require it
       let userId = dbUserId
       if (!userId && user) {
-        const u = await api.upsertUser({
-          clerk_id: user.id,
-          email: user.primaryEmailAddress?.emailAddress ?? "",
-          name: user.fullName ?? undefined,
-        })
-        userId = u.id
-        setDbUserId(u.id)
-      }
-      if (!userId) {
-        setError("Not signed in — please sign in first")
-        setStep("story")
-        return
+        try {
+          const u = await api.upsertUser({
+            clerk_id: user.id,
+            email: user.primaryEmailAddress?.emailAddress ?? "",
+            name: user.fullName ?? undefined,
+          })
+          userId = u.id
+          setDbUserId(u.id)
+        } catch {}
       }
       const fd = new FormData()
       fd.append("subject_name", name)
       fd.append("description", description)
-      fd.append("user_id", userId)
+      if (userId) fd.append("user_id", userId)
       if (photo) fd.append("photo", photo)
       const data = await api.createManga(fd)
       router.push(`/manga/${data.manga_id}`)

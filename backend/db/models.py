@@ -22,7 +22,7 @@ class User(Base):
 class Manga(Base):
     __tablename__ = "mangas"
     id = Column(String, primary_key=True, default=gen_id)
-    user_id = Column(String, nullable=False)
+    user_id = Column(String, nullable=True)  # null = guest
     title = Column(String)
     title_jp = Column(String)
     tagline = Column(String)
