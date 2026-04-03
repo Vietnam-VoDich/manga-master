@@ -27,4 +27,9 @@ app.include_router(transcribe.router,  prefix="/transcribe", tags=["transcribe"]
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "story_model": os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-5-mini")}
+    return {
+        "status": "ok",
+        "primary_model": os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-5.2"),
+        "fallback_model": os.getenv("AZURE_FALLBACK_DEPLOYMENT", "gpt-5-mini"),
+        "image_model": os.getenv("IMAGE_MODEL", "gemini-3.1-flash-image-preview"),
+    }
