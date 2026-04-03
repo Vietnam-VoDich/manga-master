@@ -1,26 +1,23 @@
 """
-Image service — generates manga-style images using Gemini.
-If a reference photo is provided, it edits it into manga style to resemble the person.
+Manga image generation — Gemini.
+If a reference photo is given, edits it into manga style so the character resembles the person.
+IMAGE_MODEL env var controls which Gemini model is used.
 """
 from google import genai
 from google.genai import types
 from PIL import Image
-import io, os, base64, httpx
+from core.config import GEMINI_API_KEY, IMAGE_MODEL
+import io
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-MODEL = "gemini-3.1-flash-image-preview"
+client = genai.Client(api_key=GEMINI_API_KEY)
+
 
 async def generate_manga_image(prompt: str) -> bytes:
-    """Generate a manga panel from a text prompt."""
+    """Text-to-manga panel."""
     response = client.models.generate_content(
-        model=MODEL,
+        model=IMAGE_MODEL,
         contents=prompt,
-        config=types.GenerateContentConfig(
-            response_modalities=["IMAGE", "TEXT"],
-            image_generation_config=types.ImageGenerationConfig(
-                number_of_images=1,
-            )
-        )
+        config=types.GenerateContentConfig(response_modalities=["IMAGE", "TEXT"]),
     )
     for part in response.candidates[0].content.parts:
         if part.inline_data:
@@ -30,27 +27,25 @@ async def generate_manga_image(prompt: str) -> bytes:
 
 async def manga_ify_photo(photo_bytes: bytes, scene_prompt: str) -> bytes:
     """
-    Take a real photo and generate a manga panel where the character resembles the person.
-    Uses Gemini image editing.
+    Turn a real photo into a manga panel.
+    The generated character will resemble the person in the photo.
     """
     img = Image.open(io.BytesIO(photo_bytes))
-
     edit_prompt = (
-        f"Convert this person into a manga character for a panel where: {scene_prompt}. "
-        "Keep the person's key facial features — face shape, hair, any distinctive traits. "
-        "Style: high-contrast black and white manga ink art, dramatic shadows, cinematic composition."
+        f"Convert this person into a manga character for a scene where: {scene_prompt}. "
+        "Keep the person's key facial features — face shape, hair style, any distinctive traits. "
+        "Style: high-contrast black and white manga ink art, dramatic shadows, cinematic."
     )
-
-    response = client.models.generate_content(
-        model=MODEL,
-        contents=[edit_prompt, img],
-        config=types.GenerateContentConfig(
-            response_modalities=["IMAGE", "TEXT"],
+    try:
+        response = client.models.generate_content(
+            model=IMAGE_MODEL,
+            contents=[edit_prompt, img],
+            config=types.GenerateContentConfig(response_modalities=["IMAGE", "TEXT"]),
         )
-    )
-    for part in response.candidates[0].content.parts:
-        if part.inline_data:
-            return part.inline_data.data
-
-    # fallback: generate without photo
-    return await generate_manga_image(scene_prompt + ", black and white manga ink style")
+        for part in response.candidates[0].content.parts:
+            if part.inline_data:
+                return part.inline_data.data
+    except Exception:
+        pass
+    # Fallback: generate without photo
+    return await generate_manga_image(scene_prompt + ", black and white manga ink style, dramatic, high contrast")

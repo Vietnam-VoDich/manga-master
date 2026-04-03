@@ -1,27 +1,28 @@
 """
-Story Agent — turns a person's description into a manga script.
-Uses Azure OpenAI (gpt-4o-mini) for story generation.
+Story Agent — Azure OpenAI generates the manga script.
+Model is configured via AZURE_OPENAI_DEPLOYMENT env var (default: gpt-5-mini).
+Swap to gpt-5, o3, etc. with zero code changes.
 """
 from openai import AzureOpenAI
-import os, json
+from core.config import AZURE_OPENAI_KEY, AZURE_OPENAI_ENDPOINT, AZURE_API_VERSION, STORY_MODEL
+import json
 
 client = AzureOpenAI(
-    api_key=os.getenv("AZURE_OPENAI_KEY"),
-    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-    api_version="2024-08-01-preview",
+    api_key=AZURE_OPENAI_KEY,
+    azure_endpoint=AZURE_OPENAI_ENDPOINT,
+    api_version=AZURE_API_VERSION,
 )
-DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-5-mini")  # set to gpt-5 or gpt-5-mini in Azure portal
 
 STORY_SYSTEM = """You are a manga storytelling agent. Given a description of a real person,
-you create a short, funny, warm, and dramatic manga script about their life.
+create a funny, warm, and dramatic manga script about their life.
 
-Style: Think slice-of-life meets epic drama. Personal, specific, full of humour and heart.
-The narrator voice is like a wise but cheeky friend who knows everything about this person.
+Style: slice-of-life meets epic drama. Personal, specific, full of humour and heart.
+The narrator is a wise but cheeky friend who knows everything about this person.
 
-Output ONLY valid JSON with this structure:
+Output ONLY valid JSON:
 {
   "title": "manga title",
-  "title_jp": "1-2 japanese kanji characters that are meaningful",
+  "title_jp": "1-2 japanese kanji (meaningful)",
   "tagline": "one punchy line",
   "acts": [
     {
@@ -31,52 +32,51 @@ Output ONLY valid JSON with this structure:
           "type": "text",
           "act": "Act I — The Setup",
           "title": "chapter title",
-          "narr": "narrative text, use <em>word</em> for emphasis",
-          "date": "optional place/time label"
+          "narr": "narrative, use <em>word</em> for emphasis",
+          "date": "optional place/time label or null"
         },
         {
           "type": "img",
-          "image_prompt": "detailed scene description for manga image — always end with: black and white manga ink style, dramatic, high contrast",
+          "image_prompt": "detailed scene for manga image — end with: black and white manga ink style, dramatic, high contrast",
           "caption": "caption text, use <em>word</em> for emphasis",
           "bubble": "speech bubble text or null"
         }
       ]
     }
   ],
-  "climax_quote": "the big emotional moment quote that defines this person",
-  "climax_attr": "context for the quote",
+  "climax_quote": "the big emotional/funny moment quote that defines this person",
+  "climax_attr": "one-line context for the quote",
   "ending_text": "closing reflection, 3-4 lines, use <em>emphasis</em>",
-  "ending_kanji": "single kanji for the end card",
-  "music_prompt": "20-word description for ambient music generation — mood, instruments, tempo"
+  "ending_kanji": "single kanji for end card",
+  "music_prompt": "20-word ambient music description for ElevenLabs — mood, instruments, tempo"
 }
 
 Rules:
-- Preview mode: Acts I only, max 3 pages total.
+- Preview mode: Act I only, 3 pages max.
 - Full mode: 4-5 acts, 18-22 pages total.
-- Be SPECIFIC to this person. Use their actual habits, quirks, dreams, flaws.
-- Image prompts describe real scenes, not abstract concepts.
-- Find the comedy AND the heart in their life."""
+- Be SPECIFIC. Use their actual habits, quirks, dreams, disasters.
+- Image prompts = real scenes, not abstract.
+- Find both the comedy AND the heart."""
 
 
 async def generate_story(subject_name: str, description: str, preview_only: bool = True) -> dict:
     mode = "PREVIEW (Act I only, 3 pages max)" if preview_only else "FULL manga (4-5 acts, 18-22 pages)"
-    prompt = f"Create a {mode} manga story about {subject_name}.\n\nAbout them:\n{description}"
+    prompt = f"Create a {mode} manga about {subject_name}.\n\nAbout them:\n{description}"
 
     response = client.chat.completions.create(
-        model=DEPLOYMENT,
+        model=STORY_MODEL,
         messages=[
             {"role": "system", "content": STORY_SYSTEM},
             {"role": "user", "content": prompt},
         ],
         max_tokens=4096,
-        temperature=0.8,
+        temperature=0.85,
         response_format={"type": "json_object"},
     )
 
-    text = response.choices[0].message.content
-    script = json.loads(text)
+    script = json.loads(response.choices[0].message.content)
 
-    # Flatten acts into pages list with climax + ending appended
+    # Flatten all act pages into a single list
     pages = []
     for act in script.get("acts", []):
         pages.extend(act.get("pages", []))
@@ -85,4 +85,5 @@ async def generate_story(subject_name: str, description: str, preview_only: bool
     pages.append({"type": "ending", "ending_text": script.get("ending_text", ""), "ending_kanji": script.get("ending_kanji", "終")})
 
     script["pages"] = pages
+    script["model_used"] = STORY_MODEL
     return script

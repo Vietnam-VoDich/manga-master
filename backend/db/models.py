@@ -11,7 +11,7 @@ def gen_id():
 class User(Base):
     __tablename__ = "users"
     id = Column(String, primary_key=True, default=gen_id)
-    supabase_id = Column(String, unique=True, nullable=False)
+    clerk_id = Column(String, unique=True, nullable=False)
     email = Column(String, unique=True, nullable=False)
     name = Column(String)
     is_subscribed = Column(Boolean, default=False)
@@ -24,11 +24,14 @@ class Manga(Base):
     id = Column(String, primary_key=True, default=gen_id)
     user_id = Column(String, nullable=False)
     title = Column(String)
+    title_jp = Column(String)
+    tagline = Column(String)
     subject_name = Column(String)
     subject_description = Column(Text)
     photo_url = Column(String)
-    status = Column(String, default="pending")  # pending, generating, preview, complete
-    pages = Column(JSON, default=[])             # list of {image_url, caption, narration_url}
+    status = Column(String, default="pending")  # pending | generating | preview | complete | error
+    pages = Column(JSON, default=[])            # [{type, image_url, caption, narration_url, ...}]
     audio_theme_url = Column(String)
-    is_preview = Column(Boolean, default=True)   # free users only get preview (2 pages)
+    is_preview = Column(Boolean, default=True)
+    model_used = Column(String)                 # track which model generated it
     created_at = Column(DateTime, server_default=func.now())
