@@ -1,3 +1,6 @@
+[phases.setup]
+nixPkgs = ["postgresql"]
+
 [phases.install]
 cmds = ["pip install -r backend/requirements.txt"]
 
