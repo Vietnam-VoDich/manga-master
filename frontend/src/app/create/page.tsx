@@ -28,12 +28,16 @@ export default function CreatePage() {
     }).then((u: { id: string }) => setDbUserId(u.id)).catch(console.error)
   }, [isLoaded, user])
 
-  const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const handlePhoto = (file: File) => {
     setPhoto(file)
     setPhotoPreview(URL.createObjectURL(file))
     setStep("story")
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    const file = e.dataTransfer.files?.[0]
+    if (file && file.type.startsWith("image/")) handlePhoto(file)
   }
 
   const startRecording = async () => {
@@ -96,10 +100,14 @@ export default function CreatePage() {
             <h2 className="font-serif text-2xl sm:text-3xl text-white/80 mb-2">Upload a photo</h2>
             <p className="text-sm text-white/30 mb-8">The manga character will resemble this person</p>
 
-            <label className="group border border-white/10 w-full aspect-[3/4] max-w-[200px] mx-auto flex flex-col items-center justify-center cursor-pointer hover:border-white/30 active:border-white/40 transition-all block">
+            <label
+              className="group border border-white/10 w-full aspect-[3/4] max-w-[240px] mx-auto flex flex-col items-center justify-center cursor-pointer hover:border-white/30 active:border-white/40 transition-all block"
+              onDragOver={e => e.preventDefault()}
+              onDrop={handleDrop}
+            >
               <span className="text-4xl text-white/10 group-hover:text-white/30 transition-colors mb-3">+</span>
-              <span className="text-[10px] tracking-widest uppercase text-white/20">Choose photo</span>
-              <input type="file" accept="image/*" capture="user" className="hidden" onChange={handlePhoto} />
+              <span className="text-[10px] tracking-widest uppercase text-white/20 group-hover:text-white/40 transition-colors">Drop photo or click</span>
+              <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handlePhoto(f) }} />
             </label>
 
             <button
