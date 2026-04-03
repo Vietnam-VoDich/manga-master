@@ -206,15 +206,21 @@ export default function MangaReaderPage() {
           <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 text-center">
             <div className="font-serif text-5xl text-white/10 mb-6">続</div>
             <p className="text-sm text-white/60 font-semibold mb-2">The story continues...</p>
-            <p className="text-xs text-white/30 mb-8 max-w-xs leading-relaxed">Subscribe to unlock the full manga — 20+ pages, full voice narration, cinematic soundtrack.</p>
+            <p className="text-xs text-white/30 mb-8 max-w-xs leading-relaxed">Sign up free to save this manga, then subscribe to unlock all 20+ pages with voice narration and soundtrack.</p>
+            <Link
+              href={`/sign-up?redirect_url=/manga/${manga.id}`}
+              className="bg-white text-black text-xs tracking-[4px] uppercase px-8 py-3 font-semibold hover:bg-white/90 transition-all mb-3 block"
+            >
+              Sign up free — save your manga
+            </Link>
             <Link
               href="/pricing"
-              className="bg-white text-black text-xs tracking-[4px] uppercase px-8 py-3 font-semibold hover:bg-white/90 transition-all mb-4 block"
+              className="text-[10px] tracking-widest uppercase text-white/25 hover:text-white/50 transition-colors mb-6 block"
             >
-              Unlock Full Story — $12/mo
+              Already have an account? Sign in →
             </Link>
-            <Link href="/create" className="text-[10px] tracking-widest uppercase text-white/20 hover:text-white/40 transition-colors">
-              Create another manga →
+            <Link href="/create" className="text-[10px] tracking-widest uppercase text-white/15 hover:text-white/30 transition-colors">
+              Create another →
             </Link>
           </div>
         )}
