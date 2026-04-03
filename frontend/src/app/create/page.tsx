@@ -16,6 +16,7 @@ export default function CreatePage() {
   const [description, setDescription] = useState("")
   const [recording, setRecording] = useState(false)
   const [dbUserId, setDbUserId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const mediaRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
 
@@ -67,6 +68,7 @@ export default function CreatePage() {
 
   const handleSubmit = async () => {
     if (!name || !description) return
+    setError(null)
     setStep("generating")
     try {
       let userId = dbUserId
@@ -79,7 +81,11 @@ export default function CreatePage() {
         userId = u.id
         setDbUserId(u.id)
       }
-      if (!userId) { setStep("story"); return }
+      if (!userId) {
+        setError("Not signed in — please sign in first")
+        setStep("story")
+        return
+      }
       const fd = new FormData()
       fd.append("subject_name", name)
       fd.append("description", description)
@@ -87,7 +93,8 @@ export default function CreatePage() {
       if (photo) fd.append("photo", photo)
       const data = await api.createManga(fd)
       router.push(`/manga/${data.manga_id}`)
-    } catch {
+    } catch (e: any) {
+      setError(e?.message ?? "Something went wrong. Please try again.")
       setStep("story")
     }
   }
@@ -179,6 +186,7 @@ export default function CreatePage() {
                 {recording ? "Tap to stop recording" : "Record a voice note instead"}
               </button>
 
+              {error && <p className="text-[10px] text-red-400/70 text-center tracking-widest">{error}</p>}
               <button
                 onClick={handleSubmit}
                 disabled={!name || !description}
