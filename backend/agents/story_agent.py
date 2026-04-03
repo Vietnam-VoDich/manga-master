@@ -80,7 +80,7 @@ def _call(client: AzureOpenAI, deployment: str, prompt: str) -> dict:
             {"role": "system", "content": STORY_SYSTEM},
             {"role": "user", "content": prompt},
         ],
-        max_tokens=4096,
+        max_completion_tokens=4096,
         temperature=0.85,
         response_format={"type": "json_object"},
     )
