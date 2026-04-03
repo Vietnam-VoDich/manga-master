@@ -7,9 +7,17 @@ import os
 
 app = FastAPI(title="Manga Master API", version="1.0.0")
 
+_cors_origins = ["http://localhost:3000"]
+if FRONTEND_URL:
+    _cors_origins.append(FRONTEND_URL)
+    # allow all *.vercel.app previews
+if "vercel.app" in (FRONTEND_URL or ""):
+    _cors_origins.append("https://*.vercel.app")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL, "http://localhost:3000"],
+    allow_origins=_cors_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
