@@ -66,7 +66,7 @@ Output ONLY valid JSON:
 }
 
 Rules:
-- Preview mode: Act I only, 3 pages max.
+- Preview mode: Act I only, EXACTLY 1 text page + 1 img page. No climax, no ending in preview.
 - Full mode: 4-5 acts, 18-22 pages total.
 - Be SPECIFIC. Use their actual habits, quirks, dreams, disasters.
 - Image prompts = real scenes, not abstract.
@@ -107,12 +107,13 @@ async def generate_story(subject_name: str, description: str, preview_only: bool
             logger.error(f"Fallback model also failed: {e2}")
             raise
 
-    # Flatten acts → pages list, append climax + ending
+    # Flatten acts → pages list, append climax + ending (full only)
     pages = []
     for act in script.get("acts", []):
         pages.extend(act.get("pages", []))
-    pages.append({"type": "climax", "quote": script.get("climax_quote", ""), "attr": script.get("climax_attr", "")})
-    pages.append({"type": "ending", "ending_text": script.get("ending_text", ""), "ending_kanji": script.get("ending_kanji", "終")})
+    if not preview_only:
+        pages.append({"type": "climax", "quote": script.get("climax_quote", ""), "attr": script.get("climax_attr", "")})
+        pages.append({"type": "ending", "ending_text": script.get("ending_text", ""), "ending_kanji": script.get("ending_kanji", "終")})
 
     script["pages"] = pages
     script["model_used"] = model_used
