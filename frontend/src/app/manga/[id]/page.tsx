@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
+import { useUser, UserButton } from "@clerk/nextjs"
 
 type MangaPage =
   | { type: "text"; act?: string; ch?: string; title?: string; date?: string; narr?: string }
@@ -25,6 +26,7 @@ type MangaData = {
 export default function MangaReaderPage() {
   const { id } = useParams()
   const router = useRouter()
+  const { user, isLoaded } = useUser()
   const [manga, setManga] = useState<MangaData | null>(null)
   const [cur, setCur] = useState(0)
   const [turning, setTurning] = useState(false)
@@ -128,13 +130,18 @@ export default function MangaReaderPage() {
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
-      {/* Audio toggle */}
-      <button
-        onClick={toggleAudio}
-        className="fixed top-3 right-3 z-50 w-7 h-7 rounded-full border border-white/10 bg-black/70 text-white/30 text-xs flex items-center justify-center hover:text-white/60 transition-colors"
-      >
-        {audioOn ? "♫" : "♪"}
-      </button>
+      {/* Top bar */}
+      <div className="fixed top-3 right-3 z-50 flex items-center gap-2">
+        <button
+          onClick={toggleAudio}
+          className="w-7 h-7 rounded-full border border-white/10 bg-black/70 text-white/30 text-xs flex items-center justify-center hover:text-white/60 transition-colors"
+        >
+          {audioOn ? "♫" : "♪"}
+        </button>
+        {isLoaded && user && (
+          <UserButton appearance={{ elements: { avatarBox: "w-7 h-7" } }} />
+        )}
+      </div>
 
       {/* Nav zones */}
       <div className="absolute top-0 left-0 h-full w-[28%] z-20 cursor-pointer" onClick={() => go(-1)} />
@@ -219,28 +226,49 @@ export default function MangaReaderPage() {
                   <div className="text-[9px] text-white/20 italic">{manga.tagline}</div>
                 </div>
               </div>
-              {/* Right — sign up CTA */}
+              {/* Right — CTA */}
               <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 text-center bg-[#050505]">
-                <p className="text-[9px] tracking-[4px] uppercase text-white/20 mb-3">Your manga is ready</p>
-                <p className="font-serif text-xl sm:text-2xl text-white/80 font-semibold mb-3 leading-snug">The story continues...</p>
-                <p className="text-xs text-white/30 mb-8 max-w-[220px] leading-relaxed">
-                  Sign up free to save and share this manga with friends and family. Subscribe to unlock the full 20+ pages.
-                </p>
-                <Link
-                  href={`/sign-up`}
-                  className="bg-white text-black text-[10px] tracking-[4px] uppercase px-8 py-3 font-semibold hover:bg-white/90 transition-all mb-3 block w-full max-w-[220px]"
-                >
-                  Sign up free
-                </Link>
-                <Link
-                  href={`/login`}
-                  className="text-[10px] tracking-widest uppercase text-white/20 hover:text-white/40 transition-colors mb-6 block"
-                >
-                  Already have an account →
-                </Link>
-                <Link href="/create" className="text-[9px] tracking-widest uppercase text-white/10 hover:text-white/25 transition-colors">
-                  Create another manga →
-                </Link>
+                {isLoaded && user ? (
+                  <>
+                    <p className="text-[9px] tracking-[4px] uppercase text-white/20 mb-3">Your manga is saved</p>
+                    <p className="font-serif text-xl sm:text-2xl text-white/80 font-semibold mb-3 leading-snug">The story continues...</p>
+                    <p className="text-xs text-white/30 mb-8 max-w-[220px] leading-relaxed">
+                      Subscribe to unlock the full 20+ page story, voice narration, and cinematic soundtrack.
+                    </p>
+                    <Link
+                      href="/dashboard"
+                      className="bg-white text-black text-[10px] tracking-[4px] uppercase px-8 py-3 font-semibold hover:bg-white/90 transition-all mb-3 block w-full max-w-[220px]"
+                    >
+                      Go to Dashboard
+                    </Link>
+                    <Link href="/create" className="text-[9px] tracking-widest uppercase text-white/10 hover:text-white/25 transition-colors">
+                      Create another manga →
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-[9px] tracking-[4px] uppercase text-white/20 mb-3">Your manga is ready</p>
+                    <p className="font-serif text-xl sm:text-2xl text-white/80 font-semibold mb-3 leading-snug">The story continues...</p>
+                    <p className="text-xs text-white/30 mb-8 max-w-[220px] leading-relaxed">
+                      Sign up free to save and share this manga. Subscribe to unlock the full 20+ pages.
+                    </p>
+                    <Link
+                      href="/sign-up"
+                      className="bg-white text-black text-[10px] tracking-[4px] uppercase px-8 py-3 font-semibold hover:bg-white/90 transition-all mb-3 block w-full max-w-[220px]"
+                    >
+                      Sign up free
+                    </Link>
+                    <Link
+                      href="/login"
+                      className="text-[10px] tracking-widest uppercase text-white/20 hover:text-white/40 transition-colors mb-6 block"
+                    >
+                      Already have an account →
+                    </Link>
+                    <Link href="/create" className="text-[9px] tracking-widest uppercase text-white/10 hover:text-white/25 transition-colors">
+                      Create another manga →
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           )

@@ -1,6 +1,7 @@
 "use client"
 import Link from "next/link"
 import { useEffect, useState } from "react"
+import { useUser, UserButton } from "@clerk/nextjs"
 
 const SAMPLES = [
   {
@@ -32,6 +33,7 @@ const SAMPLES = [
 export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false)
   const [lastMangaId, setLastMangaId] = useState<string | null>(null)
+  const { user, isLoaded } = useUser()
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 40)
     window.addEventListener("scroll", fn)
@@ -47,8 +49,17 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <span className="font-serif text-base sm:text-lg tracking-widest text-white/80">漫画 MASTER</span>
           <div className="flex items-center gap-3 sm:gap-6">
-            <Link href="/pricing" className="text-[10px] tracking-widest uppercase text-white/30 hover:text-white/60 transition-colors hidden sm:block">Pricing</Link>
-            <Link href="/login" className="text-[10px] tracking-widest uppercase border border-white/10 px-3 sm:px-4 py-2 hover:bg-white hover:text-black transition-all">Sign In</Link>
+            {isLoaded && user ? (
+              <>
+                <Link href="/dashboard" className="text-[10px] tracking-widest uppercase text-white/30 hover:text-white/60 transition-colors hidden sm:block">My Mangas</Link>
+                <UserButton appearance={{ elements: { avatarBox: "w-7 h-7" } }} />
+              </>
+            ) : (
+              <>
+                <Link href="/pricing" className="text-[10px] tracking-widest uppercase text-white/30 hover:text-white/60 transition-colors hidden sm:block">Pricing</Link>
+                <Link href="/login" className="text-[10px] tracking-widest uppercase border border-white/10 px-3 sm:px-4 py-2 hover:bg-white hover:text-black transition-all">Sign In</Link>
+              </>
+            )}
           </div>
         </div>
       </nav>
