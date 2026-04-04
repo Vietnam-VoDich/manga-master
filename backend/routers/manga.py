@@ -200,7 +200,6 @@ Rules: mix text and img pages. Be specific to this person's story. Match the exi
             {"role": "user", "content": enhance_prompt}
         ],
         max_completion_tokens=2048,
-        temperature=0.85,
         response_format={"type": "json_object"},
     )
 

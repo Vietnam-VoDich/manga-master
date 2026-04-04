@@ -80,11 +80,14 @@ def _call(client: AzureOpenAI, deployment: str, prompt: str) -> dict:
             {"role": "system", "content": STORY_SYSTEM},
             {"role": "user", "content": prompt},
         ],
-        max_completion_tokens=4096,
-        temperature=0.85,
+        max_completion_tokens=16000,
         response_format={"type": "json_object"},
     )
-    return json.loads(response.choices[0].message.content)
+    content = response.choices[0].message.content
+    if not content:
+        reason = response.choices[0].finish_reason
+        raise ValueError(f"Empty response from model (finish_reason={reason})")
+    return json.loads(content)
 
 
 async def generate_story(subject_name: str, description: str, preview_only: bool = True) -> dict:
