@@ -90,7 +90,7 @@ export default function LandingPage() {
             <div key={s.title} className="group relative aspect-[2/3] overflow-hidden bg-zinc-950">
               <div
                 className="absolute inset-0 bg-cover bg-center transition-all duration-500 group-hover:scale-105"
-                style={{ backgroundImage: `url(${s.cover})`, filter: "brightness(0.2) contrast(1.3)" }}
+                style={{ backgroundImage: `url(${s.cover})`, filter: "brightness(0.5) contrast(1.2)" }}
               />
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 sm:p-6 z-10">
                 <div className="font-serif text-4xl sm:text-5xl font-black text-white/90 mb-2 sm:mb-3">{s.kanji}</div>
