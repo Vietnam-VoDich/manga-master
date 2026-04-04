@@ -198,15 +198,50 @@ export default function MangaReaderPage() {
 
   // Loading screen
   if (!manga) {
+    const LEFT_FACTS = [
+      { jp: "絵巻物", en: "12th century — the first picture scrolls" },
+      { jp: "北斎", en: "Hokusai coined "manga" in 1814" },
+      { jp: "手塚治虫", en: "Tezuka invented modern manga in 1952" },
+      { jp: "少年", en: "Shōnen Jump launched in 1968" },
+    ]
+    const RIGHT_FACTS = [
+      { jp: "漫画", en: "means "whimsical sketches"" },
+      { jp: "ONE PIECE", en: "520 million copies — best-selling manga" },
+      { jp: "DRAGON BALL", en: "260 million copies worldwide" },
+      { jp: "四割", en: "40% of books sold in Japan are manga" },
+    ]
     return (
-      <div className="bg-black min-h-screen flex flex-col items-center justify-center">
-        <div className="font-serif text-6xl text-white/10 animate-pulse mb-8">漫</div>
-        <p className="text-xs tracking-widest text-white/20 uppercase mb-10">Generating your manga...</p>
-        <div className="space-y-4">
-          {LOAD_STEPS.map((s, i) => (
-            <div key={s} className={`flex items-center gap-3 transition-all duration-700 ${i === loadStep ? "opacity-100" : "opacity-15"}`}>
-              <div className={`w-1.5 h-1.5 rounded-full transition-all duration-700 ${i === loadStep ? "bg-white/60" : "bg-white/20"}`} />
-              <span className="text-[10px] tracking-[3px] uppercase text-white/40">{s}</span>
+      <div className="bg-black min-h-screen relative flex items-center justify-center">
+        {/* Left facts — desktop only */}
+        <div className="hidden lg:flex flex-col gap-8 absolute left-12 xl:left-20 top-1/2 -translate-y-1/2 text-right">
+          {LEFT_FACTS.map((f, i) => (
+            <div key={i} className="opacity-[0.06] hover:opacity-[0.14] transition-opacity duration-500">
+              <div className="font-serif text-sm text-white/80 tracking-widest mb-0.5">{f.jp}</div>
+              <div className="text-[9px] tracking-[2px] text-white/50 max-w-[160px] ml-auto">{f.en}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Center */}
+        <div className="flex flex-col items-center">
+          <div className="font-serif text-6xl text-white/10 animate-pulse mb-8">漫</div>
+          <p className="text-xs tracking-widest text-white/20 uppercase mb-10">Generating your manga...</p>
+          <div className="space-y-4">
+            {LOAD_STEPS.map((s, i) => (
+              <div key={s} className={`flex items-center gap-3 transition-all duration-700 ${i === loadStep ? "opacity-100" : "opacity-15"}`}>
+                <div className={`w-1.5 h-1.5 rounded-full transition-all duration-700 ${i === loadStep ? "bg-white/60" : "bg-white/20"}`} />
+                <span className="text-[10px] tracking-[3px] uppercase text-white/40">{s}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right facts — desktop only */}
+        <div className="hidden lg:flex flex-col gap-8 absolute right-12 xl:right-20 top-1/2 -translate-y-1/2 text-left">
+          {RIGHT_FACTS.map((f, i) => (
+            <div key={i} className="opacity-[0.06] hover:opacity-[0.14] transition-opacity duration-500">
+              <div className="font-serif text-sm text-white/80 tracking-widest mb-0.5">{f.jp}</div>
+              <div className="text-[9px] tracking-[2px] text-white/50 max-w-[160px]">{f.en}</div>
             </div>
           ))}
         </div>
