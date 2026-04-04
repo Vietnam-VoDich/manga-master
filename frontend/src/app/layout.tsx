@@ -6,7 +6,7 @@ import "./globals.css";
 const geist = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Manga Master — Turn anyone into a manga",
+  title: "Emaki — Turn anyone into a manga",
   description: "Upload a photo, describe someone, get a full AI-generated manga with voice narration and soundtrack.",
 };
 

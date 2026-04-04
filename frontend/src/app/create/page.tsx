@@ -103,7 +103,7 @@ export default function CreatePage() {
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 sm:px-6 h-14 border-b border-white/5">
-        <span className="font-serif text-base tracking-widest text-white/40">漫画</span>
+        <span className="font-serif text-base tracking-widest text-white/40">絵巻</span>
         <span className="text-[9px] tracking-[4px] uppercase text-white/20">
           {step === "photo" ? "1 / 2" : step === "story" ? "2 / 2" : "..."}
         </span>

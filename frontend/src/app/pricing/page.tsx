@@ -3,7 +3,7 @@ import Link from "next/link"
 export default function PricingPage() {
   return (
     <main className="bg-black text-white min-h-[100dvh] flex flex-col items-center justify-center px-5 py-16">
-      <Link href="/" className="font-serif text-2xl tracking-widest text-white/30 mb-10 hover:text-white/50 transition-colors">漫画</Link>
+      <Link href="/" className="font-serif text-2xl tracking-widest text-white/30 mb-10 hover:text-white/50 transition-colors">絵巻</Link>
       <p className="text-[9px] tracking-[5px] uppercase text-white/20 mb-10">Pricing</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 w-full max-w-xl">

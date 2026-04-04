@@ -55,7 +55,7 @@ export default function LandingPage() {
       {/* NAV */}
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? "bg-black/90 backdrop-blur border-b border-white/5" : ""}`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <span className="font-serif text-base sm:text-lg tracking-widest text-white/80">漫画 MASTER</span>
+          <span className="font-serif text-base sm:text-lg tracking-widest text-white/80">絵巻 EMAKI</span>
           <div className="flex items-center gap-3 sm:gap-6">
             {isLoaded && user ? (
               <>
@@ -75,7 +75,7 @@ export default function LandingPage() {
       {/* HERO */}
       <section className="min-h-screen flex flex-col items-center justify-center text-center px-5 pt-14">
         <p className="text-[9px] tracking-[6px] uppercase text-white/20 mb-5">Turn anyone into</p>
-        <h1 className="font-serif text-7xl sm:text-8xl md:text-[130px] font-black tracking-widest text-white leading-none mb-4">漫画</h1>
+        <h1 className="font-serif text-7xl sm:text-8xl md:text-[130px] font-black tracking-widest text-white leading-none mb-4">絵巻</h1>
         <p className="text-[9px] sm:text-xs tracking-[5px] uppercase text-white/20 mb-8">A Manga Story</p>
         <p className="text-white/40 text-sm leading-relaxed max-w-xs sm:max-w-md mb-10">
           Upload a photo. Describe someone — your friend, your boss, yourself.
@@ -160,7 +160,7 @@ export default function LandingPage() {
 
       {/* FOOTER */}
       <footer className="border-t border-white/5 py-6 text-center text-[9px] tracking-widest uppercase text-white/10 px-4">
-        漫画 Master · Turn lives into manga · Claude + Gemini + ElevenLabs
+        Emaki · Turn lives into manga · emaki.app
       </footer>
 
     </main>

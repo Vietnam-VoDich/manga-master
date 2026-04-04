@@ -54,7 +54,7 @@ function DashboardInner() {
     <main className="bg-black min-h-[100dvh] text-white">
       {/* Nav */}
       <nav className="border-b border-white/5 px-4 sm:px-6 h-14 flex items-center justify-between">
-        <Link href="/" className="font-serif text-base tracking-widest text-white/50 hover:text-white/70 transition-colors">漫画</Link>
+        <Link href="/" className="font-serif text-base tracking-widest text-white/50 hover:text-white/70 transition-colors">絵巻</Link>
         <div className="flex items-center gap-3 sm:gap-4">
           {dbUser?.is_subscribed ? (
             <button onClick={handleBilling} className="text-[9px] tracking-widest uppercase text-white/20 hover:text-white/40 transition-colors hidden sm:block">Billing</button>
