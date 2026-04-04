@@ -43,6 +43,7 @@ export default function MangaReaderPage() {
   const [loadStep, setLoadStep] = useState(0)
   const [dbUserId, setDbUserId] = useState("")
   const [shareMsg, setShareMsg] = useState("")
+  const [error, setError] = useState("")
 
   // Animate loading steps
   useEffect(() => {
@@ -65,27 +66,38 @@ export default function MangaReaderPage() {
   useEffect(() => {
     if (!polling) return
     const timer = setInterval(async () => {
-      const params = dbUserId ? `?user_id=${dbUserId}` : ""
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/manga/${id}${params}`)
-      const data = await res.json()
-      const done = data.status === "preview" || data.status === "complete" || data.status === "error"
-      const hasPages = data.pages?.length > 0
-      if (done || (data.status === "streaming" && hasPages)) {
-        const pages = [...(data.pages || [])]
-        if (done && data.is_preview) pages.push({ type: "upsell" })
-        setManga(prev => ({ ...data, pages, audio_theme_url: prev?.audio_theme_url || data.audio_theme_url }))
-        if (done) {
-          setPolling(false)
-          if (data.audio_theme_url) {
-            const a = new Audio(data.audio_theme_url)
-            a.loop = true; a.volume = 0.35
-            setAudio(a)
+      try {
+        const params = dbUserId ? `?user_id=${dbUserId}` : ""
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/manga/${id}${params}`)
+        if (res.status === 403) {
+          // Manga is private — if user not loaded yet, wait; otherwise show error
+          if (!isLoaded) return
+          if (!user) { setError("private"); setPolling(false); return }
+          // User is loaded but still 403 — wait for dbUserId to populate
+          if (!dbUserId) return
+          setError("private"); setPolling(false); return
+        }
+        if (!res.ok) { setError("notfound"); setPolling(false); return }
+        const data = await res.json()
+        const done = data.status === "preview" || data.status === "complete" || data.status === "error"
+        const hasPages = data.pages?.length > 0
+        if (done || (data.status === "streaming" && hasPages)) {
+          const pages = [...(data.pages || [])]
+          if (done && data.is_preview) pages.push({ type: "upsell" })
+          setManga(prev => ({ ...data, pages, audio_theme_url: prev?.audio_theme_url || data.audio_theme_url }))
+          if (done) {
+            setPolling(false)
+            if (data.audio_theme_url) {
+              const a = new Audio(data.audio_theme_url)
+              a.loop = true; a.volume = 0.35
+              setAudio(a)
+            }
           }
         }
-      }
+      } catch {}
     }, 3000)
     return () => clearInterval(timer)
-  }, [id, polling])
+  }, [id, polling, dbUserId, isLoaded, user])
 
   const go = useCallback((dir: 1 | -1) => {
     if (!manga) return
@@ -159,6 +171,29 @@ export default function MangaReaderPage() {
   const startBook = () => {
     setShowCover(false)
     if (audio) { audio.play().catch(() => {}); setAudioOn(true) }
+  }
+
+  // Error screen
+  if (error === "private") {
+    return (
+      <div className="bg-black min-h-screen flex flex-col items-center justify-center text-center px-8">
+        <div className="font-serif text-5xl text-white/10 mb-6">鍵</div>
+        <p className="text-xs tracking-widest text-white/30 uppercase mb-4">This manga is private</p>
+        <p className="text-[10px] text-white/15 mb-8">Sign in to view your manga.</p>
+        <Link href={`/sign-in?redirect_url=/manga/${id}`} className="border border-white/20 text-white/40 text-[10px] tracking-[4px] uppercase px-8 py-3 hover:bg-white hover:text-black transition-all">
+          Sign In
+        </Link>
+      </div>
+    )
+  }
+
+  if (error === "notfound") {
+    return (
+      <div className="bg-black min-h-screen flex flex-col items-center justify-center text-center px-8">
+        <p className="text-xs tracking-widest text-white/20 uppercase mb-4">Manga not found</p>
+        <Link href="/create" className="text-[10px] tracking-widest uppercase text-white/20 hover:text-white/40 transition-colors">Create a new manga →</Link>
+      </div>
+    )
   }
 
   // Loading screen
