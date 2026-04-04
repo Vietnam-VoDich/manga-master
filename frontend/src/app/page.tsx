@@ -21,12 +21,20 @@ const SAMPLES = [
     href: "/sample/hcm",
   },
   {
-    kanji: "築",
-    title: "Blueprints & Bánh Mì",
-    sub: "A Vietnamese real estate mogul builds her empire. Will she succeed?",
-    era: "Ho Chi Minh City · Now",
-    cover: "/sample-manga-hcm/colonial-village.png",
-    href: "/manga/9d169d67-d612-4afe-8c99-7b03f19e5f79",
+    kanji: "糸",
+    title: "Selda's Thread",
+    sub: "A Turkish mother, a dying bazaar, an Etsy shop, and the power of never giving up.",
+    era: "Turkey · Now",
+    cover: "/sample-manga-selda/zelda-triumphant.png",
+    href: "/sample/selda",
+  },
+  {
+    kanji: "居",
+    title: "5th Residence",
+    sub: "From the invisible middle child in Hai Duong to Vietnam's next real estate mogul.",
+    era: "Vietnam · Now",
+    cover: "/sample-manga-duong/mogul-portrait.png",
+    href: "/sample/duong",
   },
 ]
 
@@ -106,7 +114,7 @@ export default function LandingPage() {
       <section className="px-5 sm:px-6 py-16 sm:py-24 border-t border-white/5">
         <p className="text-[9px] tracking-[5px] uppercase text-white/20 text-center mb-3">Sample stories</p>
         <p className="text-white/20 text-[10px] text-center mb-10 tracking-widest">Real mangas generated with this system</p>
-        <div className="max-w-sm sm:max-w-3xl mx-auto grid grid-cols-3 gap-1">
+        <div className="max-w-sm sm:max-w-2xl mx-auto grid grid-cols-2 gap-1">
           {SAMPLES.map(s => (
             <Link key={s.title} href={s.href} className="group relative aspect-[2/3] overflow-hidden bg-zinc-950 cursor-pointer">
               <div
