@@ -2,9 +2,10 @@ import type { Metadata } from "next"
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").trim()
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   try {
-    const res = await fetch(`${API}/manga/${params.id}`, { cache: "no-store" })
+    const { id } = await params
+    const res = await fetch(`${API}/manga/${id}`, { cache: "no-store" })
     if (!res.ok) return { title: "Emaki — Turn anyone into a manga" }
     const manga = await res.json()
     const name = manga.title || manga.subject_name || "A Manga Story"
