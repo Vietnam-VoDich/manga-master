@@ -26,6 +26,8 @@ export default function SignUpPage() {
             socialButtonsBlockButton: "border-white/10",
             formButtonPrimary: "text-black font-semibold tracking-widest uppercase text-xs",
             footerActionLink: "text-white/40 hover:text-white/70",
+            formFieldInput: "!bg-[#0f0f0f] !text-white !border-white/10 !placeholder-white/20",
+            formFieldLabel: "!text-white/40",
           },
         }}
       />
