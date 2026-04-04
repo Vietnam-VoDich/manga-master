@@ -34,4 +34,5 @@ class Manga(Base):
     audio_theme_url = Column(String)
     is_preview = Column(Boolean, default=True)
     model_used = Column(String)                 # track which model generated it
+    enhance_message = Column(String)            # last agent action description
     created_at = Column(DateTime, server_default=func.now())

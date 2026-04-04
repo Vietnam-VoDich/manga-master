@@ -2,18 +2,90 @@ from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, B
 from sqlalchemy.orm import Session
 from db.database import get_db
 from db.models import Manga, User
-from agents.story_agent import generate_story
+from agents.story_agent import generate_story, generate_continuation, agent_decide
 from services.image_service import generate_manga_image, manga_ify_photo
 from services.audio_service import generate_narration, generate_theme_music
 from services.storage_service import upload
 from core.auth import verify_clerk_token
 from typing import Optional
+import httpx
 
 router = APIRouter()
 
 
+# ── helpers ────────────────────────────────────────────────────────────────────
+
+async def _render_pages(raw_pages: list, photo_bytes: bytes | None) -> list:
+    """Render story-script pages into fully-resolved page dicts (with image URLs, narration URLs)."""
+    pages = []
+    for page in raw_pages:
+        if page["type"] == "text":
+            pages.append(page)
+
+        elif page["type"] == "img":
+            try:
+                if photo_bytes:
+                    img_bytes = await manga_ify_photo(photo_bytes, page["image_prompt"])
+                else:
+                    img_bytes = await generate_manga_image(page["image_prompt"])
+                img_url = await upload(img_bytes, "png", "pages")
+            except Exception:
+                continue  # skip failed images
+
+            narr_url = None
+            caption = page.get("caption", "")
+            if caption:
+                try:
+                    narr_bytes = await generate_narration(caption)
+                    narr_url = await upload(narr_bytes, "mp3", "narration")
+                except Exception:
+                    pass
+
+            pages.append({
+                "type": "img",
+                "image_url": img_url,
+                "caption": caption,
+                "bubble": page.get("bubble"),
+                "narration_url": narr_url,
+            })
+
+        elif page["type"] in ("climax", "ending"):
+            pages.append(page)
+
+    return pages
+
+
+async def _fetch_photo(photo_url: str | None) -> bytes | None:
+    """Re-fetch stored photo bytes from its URL."""
+    if not photo_url:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(photo_url)
+            r.raise_for_status()
+            return r.content
+    except Exception:
+        return None
+
+
+def _pages_summary(pages: list) -> str:
+    lines = []
+    for i, p in enumerate(pages):
+        if p.get("type") == "text":
+            lines.append(f"p{i+1} text: {p.get('title','')} — {(p.get('narr') or '')[:80]}…")
+        elif p.get("type") == "img":
+            lines.append(f"p{i+1} image: {(p.get('caption') or '')[:60]}")
+        elif p.get("type") == "climax":
+            lines.append(f"p{i+1} climax: {(p.get('quote') or '')[:60]}")
+        elif p.get("type") == "ending":
+            lines.append(f"p{i+1} ending")
+    return "\n".join(lines)
+
+
+# ── background tasks ────────────────────────────────────────────────────────────
+
 async def _build_manga(manga_id: str, photo_bytes: bytes | None, db: Session):
-    """Background task: full generation pipeline."""
+    """Full generation pipeline (preview or full depending on subscription)."""
     manga = db.query(Manga).filter(Manga.id == manga_id).first()
     if not manga:
         return
@@ -21,58 +93,22 @@ async def _build_manga(manga_id: str, photo_bytes: bytes | None, db: Session):
         manga.status = "generating"
         db.commit()
 
-        # Guest or unsubscribed user = preview only (cover + 1 page)
         user = db.query(User).filter(User.id == manga.user_id).first() if manga.user_id else None
         preview_only = not (user and user.is_subscribed)
 
-        # 1. Story script
         script = await generate_story(manga.subject_name, manga.subject_description, preview_only)
         manga.title      = script.get("title")
         manga.title_jp   = script.get("title_jp")
         manga.tagline    = script.get("tagline")
         manga.model_used = script.get("model_used")
 
-        # 2. Theme music (non-fatal — manga still works without it)
         try:
             music_bytes = await generate_theme_music(script.get("music_prompt", "cinematic dramatic orchestral slow"))
             manga.audio_theme_url = await upload(music_bytes, "mp3", "themes")
         except Exception:
             manga.audio_theme_url = None
 
-        # 3. Pages
-        pages = []
-        for page in script.get("pages", []):
-            if page["type"] == "text":
-                pages.append(page)
-
-            elif page["type"] == "img":
-                if photo_bytes:
-                    img_bytes = await manga_ify_photo(photo_bytes, page["image_prompt"])
-                else:
-                    img_bytes = await generate_manga_image(page["image_prompt"])
-                img_url = await upload(img_bytes, "png", "pages")
-
-                narr_url = None
-                caption = page.get("caption", "")
-                if caption:
-                    try:
-                        narr_bytes = await generate_narration(caption)
-                        narr_url = await upload(narr_bytes, "mp3", "narration")
-                    except Exception:
-                        narr_url = None
-
-                pages.append({
-                    "type": "img",
-                    "image_url": img_url,
-                    "caption": caption,
-                    "bubble": page.get("bubble"),
-                    "narration_url": narr_url,
-                })
-
-            elif page["type"] in ("climax", "ending"):
-                pages.append(page)
-
-        manga.pages = pages
+        manga.pages = await _render_pages(script.get("pages", []), photo_bytes)
         manga.is_preview = preview_only
         manga.status = "preview" if preview_only else "complete"
         db.commit()
@@ -82,6 +118,120 @@ async def _build_manga(manga_id: str, photo_bytes: bytes | None, db: Session):
         db.commit()
         raise e
 
+
+async def _continue_manga(manga_id: str, db: Session):
+    """Continue an existing preview manga: generate Acts II-V and append."""
+    manga = db.query(Manga).filter(Manga.id == manga_id).first()
+    if not manga:
+        return
+    try:
+        manga.status = "generating"
+        db.commit()
+
+        # Act I pages are already stored — keep them
+        act_one_pages = list(manga.pages or [])
+
+        photo_bytes = await _fetch_photo(manga.photo_url)
+
+        script = await generate_continuation(
+            manga.subject_name,
+            manga.subject_description,
+            act_one_pages,
+            manga.title or manga.subject_name,
+            manga.tagline or "",
+        )
+
+        new_pages = await _render_pages(script.get("pages", []), photo_bytes)
+
+        manga.pages = act_one_pages + new_pages
+        manga.is_preview = False
+        manga.status = "complete"
+        db.commit()
+
+    except Exception as e:
+        manga.status = "error"
+        db.commit()
+        raise e
+
+
+async def _run_enhance(manga_id: str, user_id: str, instruction: str, db: Session):
+    """Agent-driven enhance: decide action, execute, update manga."""
+    manga = db.query(Manga).filter(Manga.id == manga_id).first()
+    if not manga:
+        return
+    try:
+        current_pages = list(manga.pages or [])
+        summary = _pages_summary(current_pages)
+
+        decision = await agent_decide(
+            manga.subject_name,
+            manga.title or manga.subject_name,
+            manga.tagline or "",
+            summary,
+            instruction,
+        )
+
+        action = decision.get("action", "add_pages")
+        photo_bytes = await _fetch_photo(manga.photo_url)
+
+        if action == "add_pages":
+            new_raw = decision.get("pages", [])
+            new_pages = await _render_pages(new_raw, photo_bytes)
+
+            insert_before = decision.get("insert_before", "climax")
+            insert_at = len(current_pages)
+            for i, p in enumerate(current_pages):
+                if insert_before == "climax" and p.get("type") == "climax":
+                    insert_at = i
+                    break
+                elif insert_before == "ending" and p.get("type") == "ending":
+                    insert_at = i
+                    break
+
+            updated = current_pages[:insert_at] + new_pages + current_pages[insert_at:]
+            manga.pages = updated
+
+        elif action == "replace_ending":
+            updated = [p for p in current_pages if p.get("type") != "ending"]
+            updated.append({
+                "type": "ending",
+                "ending_text": decision.get("ending_text", ""),
+                "ending_kanji": decision.get("ending_kanji", "終"),
+            })
+            manga.pages = updated
+
+        elif action == "replace_climax":
+            updated = []
+            for p in current_pages:
+                if p.get("type") == "climax":
+                    updated.append({
+                        "type": "climax",
+                        "quote": decision.get("climax_quote", p.get("quote", "")),
+                        "attr": decision.get("climax_attr", p.get("attr", "")),
+                    })
+                else:
+                    updated.append(p)
+            manga.pages = updated
+
+        elif action == "regenerate":
+            # Full regeneration — treat as a new expand
+            manga.pages = []
+            manga.is_preview = False
+            db.commit()
+            await _continue_manga(manga_id, db)
+            return  # _continue_manga sets status itself
+
+        manga.status = "complete"
+        manga.enhance_message = decision.get("reasoning", "Story updated.")
+        db.commit()
+
+    except Exception as e:
+        manga.status = "error"
+        db.commit()
+        raise e
+
+
+# ── endpoints ──────────────────────────────────────────────────────────────────
 
 @router.post("/create")
 async def create_manga(
@@ -98,13 +248,22 @@ async def create_manga(
     db.add(manga)
     db.commit()
     db.refresh(manga)
+
+    # Store original photo so expand/enhance can reuse it
+    if photo_bytes:
+        try:
+            photo_url = await upload(photo_bytes, "jpg", "photos")
+            manga.photo_url = photo_url
+            db.commit()
+        except Exception:
+            pass
+
     background_tasks.add_task(_build_manga, manga.id, photo_bytes, db)
     return {"manga_id": manga.id, "status": "pending"}
 
 
 @router.get("/{manga_id}")
 def get_manga(manga_id: str, db: Session = Depends(get_db)):
-    """No auth required — guests can poll their manga status."""
     manga = db.query(Manga).filter(Manga.id == manga_id).first()
     if not manga:
         raise HTTPException(404, "Not found")
@@ -113,12 +272,11 @@ def get_manga(manga_id: str, db: Session = Depends(get_db)):
 
 @router.patch("/{manga_id}/claim")
 def claim_manga(manga_id: str, body: dict, db: Session = Depends(get_db)):
-    """Associate a guest manga with a user after they sign up."""
     manga = db.query(Manga).filter(Manga.id == manga_id).first()
     if not manga:
         raise HTTPException(404, "Not found")
     if manga.user_id:
-        return manga  # Already claimed, no-op
+        return manga
     manga.user_id = body.get("user_id")
     db.commit()
     db.refresh(manga)
@@ -127,7 +285,7 @@ def claim_manga(manga_id: str, body: dict, db: Session = Depends(get_db)):
 
 @router.post("/{manga_id}/expand")
 async def expand_manga(manga_id: str, body: dict, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    """Re-generate the full story for a subscribed user's preview manga."""
+    """Continue a preview manga into a full story. Keeps Act I, adds Acts II-V."""
     manga = db.query(Manga).filter(Manga.id == manga_id).first()
     if not manga:
         raise HTTPException(404, "Not found")
@@ -135,19 +293,21 @@ async def expand_manga(manga_id: str, body: dict, background_tasks: BackgroundTa
     user = db.query(User).filter(User.id == user_id).first() if user_id else None
     if not user or not user.is_subscribed:
         raise HTTPException(403, "Subscription required")
-    # Reset to pending so the reader shows "generating"
+
+    # Keep Act I pages; continuation will append the rest
+    act_one = [p for p in (manga.pages or []) if p.get("type") not in ("climax", "ending")]
+    manga.pages = act_one
     manga.status = "pending"
     manga.is_preview = False
-    manga.pages = []
     db.commit()
-    # Re-fetch photo if stored
-    background_tasks.add_task(_build_manga, manga_id, None, db)
+
+    background_tasks.add_task(_continue_manga, manga_id, db)
     return {"manga_id": manga_id, "status": "pending"}
 
 
 @router.post("/{manga_id}/enhance")
-async def enhance_manga(manga_id: str, body: dict, db: Session = Depends(get_db)):
-    """Add new pages to a manga based on a user instruction. Subscribers only."""
+async def enhance_manga(manga_id: str, body: dict, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """Async agent-driven story enhancement. Returns immediately; client polls manga status."""
     manga = db.query(Manga).filter(Manga.id == manga_id).first()
     if not manga:
         raise HTTPException(404, "Not found")
@@ -157,94 +317,11 @@ async def enhance_manga(manga_id: str, body: dict, db: Session = Depends(get_db)
         raise HTTPException(403, "Subscription required")
 
     instruction = body.get("instruction", "")
-
-    # Use the story agent to generate additional pages
-    from agents.story_agent import _primary_client, _fallback_client, STORY_SYSTEM
-
-    enhance_prompt = f"""The user has an existing manga about {manga.subject_name}.
-
-Existing story summary: {manga.title} — {manga.tagline}
-
-User instruction: {instruction}
-
-Generate 2-4 new manga pages to add to this story based on the instruction.
-Output ONLY valid JSON:
-{{
-  "message": "brief description of what you added (1 sentence)",
-  "pages": [
-    {{
-      "type": "text",
-      "act": "act label or null",
-      "title": "chapter title",
-      "narr": "narrative text, use <em>word</em> for emphasis"
-    }},
-    {{
-      "type": "img",
-      "image_prompt": "detailed scene description — end with: black and white manga ink style, dramatic, high contrast",
-      "caption": "caption text",
-      "bubble": "speech bubble or null"
-    }}
-  ]
-}}
-Rules: mix text and img pages. Be specific to this person's story. Match the existing tone."""
-
-    try:
-        client, deployment = _primary_client()
-    except Exception:
-        client, deployment = _fallback_client()
-
-    response = client.chat.completions.create(
-        model=deployment,
-        messages=[
-            {"role": "system", "content": "You are a manga story enhancement agent. Output only valid JSON."},
-            {"role": "user", "content": enhance_prompt}
-        ],
-        max_completion_tokens=2048,
-        response_format={"type": "json_object"},
-    )
-
-    import json
-    result = json.loads(response.choices[0].message.content)
-    new_pages_raw = result.get("pages", [])
-
-    # Generate images for img pages
-    from services.image_service import generate_manga_image
-    from services.storage_service import upload
-
-    new_pages = []
-    for page in new_pages_raw:
-        if page["type"] == "img":
-            try:
-                img_bytes = await generate_manga_image(page["image_prompt"])
-                img_url = await upload(img_bytes, "png", "pages")
-                new_pages.append({
-                    "type": "img",
-                    "image_url": img_url,
-                    "caption": page.get("caption", ""),
-                    "bubble": page.get("bubble"),
-                })
-            except Exception:
-                # Skip failed images, keep text pages
-                pass
-        elif page["type"] == "text":
-            new_pages.append(page)
-
-    # Append before climax/ending if they exist
-    existing = list(manga.pages or [])
-    insert_at = len(existing)
-    for i, p in enumerate(existing):
-        if p.get("type") in ("climax", "ending"):
-            insert_at = i
-            break
-
-    updated = existing[:insert_at] + new_pages + existing[insert_at:]
-    manga.pages = updated
+    manga.status = "enhancing"
     db.commit()
 
-    return {
-        "message": result.get("message", "New pages added to your story."),
-        "new_pages": new_pages,
-    }
+    background_tasks.add_task(_run_enhance, manga_id, user_id, instruction, db)
+    return {"status": "enhancing"}
 
 
 @router.get("/user/{user_id}")

@@ -42,7 +42,7 @@ export default function MangaReaderPage() {
     const timer = setInterval(async () => {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/manga/${id}`)
       const data = await res.json()
-      if (data.status === "preview" || data.status === "complete") {
+      if (data.status === "preview" || data.status === "complete" || data.status === "error") {
         // Build upsell page for preview
         const pages = [...data.pages]
         if (data.is_preview) pages.push({ type: "upsell" })

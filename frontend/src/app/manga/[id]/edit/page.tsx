@@ -195,16 +195,25 @@ export default function MangaEditPage() {
     setLoading(true)
 
     try {
-      const result = await api.enhanceManga(manga.id, dbUserId, instruction)
-      const { message, new_pages } = result as { message: string; new_pages: MangaPage[] }
+      // Kick off async enhance — returns immediately with { status: "enhancing" }
+      await api.enhanceManga(manga.id, dbUserId, instruction)
 
-      setMessages((prev) => [...prev, { role: "assistant", content: message }])
-
-      // Append new pages to manga
-      setManga((prev) => {
-        if (!prev) return prev
-        return { ...prev, pages: [...prev.pages, ...new_pages] }
-      })
+      // Poll manga until status is no longer "enhancing"
+      let updatedManga: MangaData | null = null
+      for (let i = 0; i < 60; i++) {
+        await new Promise((r) => setTimeout(r, 3000))
+        const m = await api.getManga(manga.id) as MangaData & { enhance_message?: string }
+        if (m.status !== "enhancing") {
+          updatedManga = m
+          const msg = m.enhance_message || "Story updated."
+          setMessages((prev) => [...prev, { role: "assistant", content: msg }])
+          setManga(m)
+          break
+        }
+      }
+      if (!updatedManga) {
+        throw new Error("Timed out waiting for enhancement")
+      }
     } catch (err: any) {
       setMessages((prev) => [
         ...prev,
