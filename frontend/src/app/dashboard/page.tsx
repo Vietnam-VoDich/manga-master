@@ -126,8 +126,12 @@ function DashboardInner() {
                       {m.title || m.subject_name}
                     </div>
                     <div className="flex items-center gap-1.5">
-                      {m.status === "generating" ? (
-                        <span className="text-[9px] tracking-widest uppercase text-white/15">generating...</span>
+                      {(m.status === "pending" || m.status === "generating") ? (
+                        <span className="text-[9px] tracking-widest uppercase text-white/15 animate-pulse">generating...</span>
+                      ) : m.status === "enhancing" ? (
+                        <span className="text-[9px] tracking-widest uppercase text-white/15 animate-pulse">enhancing...</span>
+                      ) : m.status === "error" ? (
+                        <span className="text-[9px] tracking-widest uppercase text-red-500/50">error</span>
                       ) : m.is_preview ? (
                         <span className="flex items-center gap-1 text-[9px] tracking-widest uppercase text-amber-500/60">
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-500/60 inline-block" />
@@ -149,8 +153,7 @@ function DashboardInner() {
                       <button
                         onClick={async () => {
                           try { await api.expandManga(m.id, dbUser!.id) } catch {}
-                          const updated = await api.listMangas(dbUser!.id)
-                          setMangas(updated)
+                          window.location.href = `/manga/${m.id}`
                         }}
                         className="text-[9px] tracking-widest uppercase text-white/30 hover:text-white/60 transition-colors border border-white/10 hover:border-white/25 px-2 py-1"
                       >

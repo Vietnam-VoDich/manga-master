@@ -326,4 +326,15 @@ async def enhance_manga(manga_id: str, body: dict, background_tasks: BackgroundT
 
 @router.get("/user/{user_id}")
 def list_mangas(user_id: str, db: Session = Depends(get_db), _claims: dict = Depends(verify_clerk_token)):
-    return db.query(Manga).filter(Manga.user_id == user_id).order_by(Manga.created_at.desc()).all()
+    mangas = db.query(Manga).filter(Manga.user_id == user_id).order_by(Manga.created_at.desc()).all()
+    result = []
+    for m in mangas:
+        cover = next((p["image_url"] for p in (m.pages or []) if p.get("type") == "img"), None)
+        result.append({
+            "id": m.id, "title": m.title, "subject_name": m.subject_name,
+            "title_jp": m.title_jp, "tagline": m.tagline,
+            "status": m.status, "is_preview": m.is_preview,
+            "created_at": str(m.created_at),
+            "cover_image": cover,
+        })
+    return result
