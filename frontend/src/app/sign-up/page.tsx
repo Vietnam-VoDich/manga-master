@@ -5,6 +5,7 @@ export default function SignUpPage() {
     <main className="bg-black min-h-screen flex flex-col items-center justify-center px-6">
       <div className="font-serif text-4xl font-black text-white/80 tracking-widest mb-8">漫画</div>
       <SignUp
+        forceRedirectUrl="/dashboard"
         appearance={{
           elements: {
             rootBox: "w-full max-w-sm",

@@ -105,6 +105,20 @@ def get_manga(manga_id: str, db: Session = Depends(get_db)):
     return manga
 
 
+@router.patch("/{manga_id}/claim")
+def claim_manga(manga_id: str, body: dict, db: Session = Depends(get_db)):
+    """Associate a guest manga with a user after they sign up."""
+    manga = db.query(Manga).filter(Manga.id == manga_id).first()
+    if not manga:
+        raise HTTPException(404, "Not found")
+    if manga.user_id:
+        return manga  # Already claimed, no-op
+    manga.user_id = body.get("user_id")
+    db.commit()
+    db.refresh(manga)
+    return manga
+
+
 @router.get("/user/{user_id}")
 def list_mangas(user_id: str, db: Session = Depends(get_db), _claims: dict = Depends(verify_clerk_token)):
     return db.query(Manga).filter(Manga.user_id == user_id).order_by(Manga.created_at.desc()).all()

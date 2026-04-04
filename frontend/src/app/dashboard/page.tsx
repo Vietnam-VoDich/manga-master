@@ -20,8 +20,14 @@ function DashboardInner() {
       clerk_id: user.id,
       email: user.primaryEmailAddress?.emailAddress ?? "",
       name: user.fullName ?? undefined,
-    }).then((u: DBUser) => {
+    }).then(async (u: DBUser) => {
       setDbUser(u)
+      // Claim any manga generated as a guest
+      const lastId = localStorage.getItem("last_manga_id")
+      if (lastId) {
+        try { await api.claimManga(lastId, u.id) } catch {}
+        localStorage.removeItem("last_manga_id")
+      }
       return api.listMangas(u.id)
     }).then(setMangas).catch(console.error)
   }, [isLoaded, user])
