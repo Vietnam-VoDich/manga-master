@@ -139,6 +139,109 @@ async def expand_manga(manga_id: str, body: dict, background_tasks: BackgroundTa
     return {"manga_id": manga_id, "status": "pending"}
 
 
+@router.post("/{manga_id}/enhance")
+async def enhance_manga(manga_id: str, body: dict, db: Session = Depends(get_db)):
+    """Add new pages to a manga based on a user instruction. Subscribers only."""
+    manga = db.query(Manga).filter(Manga.id == manga_id).first()
+    if not manga:
+        raise HTTPException(404, "Not found")
+    user_id = body.get("user_id")
+    user = db.query(User).filter(User.id == user_id).first() if user_id else None
+    if not user or not user.is_subscribed:
+        raise HTTPException(403, "Subscription required")
+
+    instruction = body.get("instruction", "")
+
+    # Use the story agent to generate additional pages
+    from agents.story_agent import _primary_client, _fallback_client, STORY_SYSTEM
+
+    enhance_prompt = f"""The user has an existing manga about {manga.subject_name}.
+
+Existing story summary: {manga.title} — {manga.tagline}
+
+User instruction: {instruction}
+
+Generate 2-4 new manga pages to add to this story based on the instruction.
+Output ONLY valid JSON:
+{{
+  "message": "brief description of what you added (1 sentence)",
+  "pages": [
+    {{
+      "type": "text",
+      "act": "act label or null",
+      "title": "chapter title",
+      "narr": "narrative text, use <em>word</em> for emphasis"
+    }},
+    {{
+      "type": "img",
+      "image_prompt": "detailed scene description — end with: black and white manga ink style, dramatic, high contrast",
+      "caption": "caption text",
+      "bubble": "speech bubble or null"
+    }}
+  ]
+}}
+Rules: mix text and img pages. Be specific to this person's story. Match the existing tone."""
+
+    try:
+        client, deployment = _primary_client()
+    except Exception:
+        client, deployment = _fallback_client()
+
+    response = client.chat.completions.create(
+        model=deployment,
+        messages=[
+            {"role": "system", "content": "You are a manga story enhancement agent. Output only valid JSON."},
+            {"role": "user", "content": enhance_prompt}
+        ],
+        max_completion_tokens=2048,
+        temperature=0.85,
+        response_format={"type": "json_object"},
+    )
+
+    import json
+    result = json.loads(response.choices[0].message.content)
+    new_pages_raw = result.get("pages", [])
+
+    # Generate images for img pages
+    from services.image_service import generate_manga_image
+    from services.storage_service import upload
+
+    new_pages = []
+    for page in new_pages_raw:
+        if page["type"] == "img":
+            try:
+                img_bytes = await generate_manga_image(page["image_prompt"])
+                img_url = await upload(img_bytes, "png", "pages")
+                new_pages.append({
+                    "type": "img",
+                    "image_url": img_url,
+                    "caption": page.get("caption", ""),
+                    "bubble": page.get("bubble"),
+                })
+            except Exception:
+                # Skip failed images, keep text pages
+                pass
+        elif page["type"] == "text":
+            new_pages.append(page)
+
+    # Append before climax/ending if they exist
+    existing = list(manga.pages or [])
+    insert_at = len(existing)
+    for i, p in enumerate(existing):
+        if p.get("type") in ("climax", "ending"):
+            insert_at = i
+            break
+
+    updated = existing[:insert_at] + new_pages + existing[insert_at:]
+    manga.pages = updated
+    db.commit()
+
+    return {
+        "message": result.get("message", "New pages added to your story."),
+        "new_pages": new_pages,
+    }
+
+
 @router.get("/user/{user_id}")
 def list_mangas(user_id: str, db: Session = Depends(get_db), _claims: dict = Depends(verify_clerk_token)):
     return db.query(Manga).filter(Manga.user_id == user_id).order_by(Manga.created_at.desc()).all()

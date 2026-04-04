@@ -161,6 +161,14 @@ function DashboardInner() {
                     )}
                   </div>
                 )}
+                {/* Edit story — subscribers only, complete mangas */}
+                {!m.is_preview && m.status === "complete" && dbUser?.is_subscribed && (
+                  <div className="px-3 sm:px-4 pb-3">
+                    <Link href={`/manga/${m.id}/edit`} className="text-[9px] tracking-widest uppercase text-white/30 hover:text-white/60 transition-colors mt-1 block">
+                      Edit story →
+                    </Link>
+                  </div>
+                )}
               </div>
             ))}
           </div>

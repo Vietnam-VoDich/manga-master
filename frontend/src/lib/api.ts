@@ -48,6 +48,9 @@ export const api = {
   expandManga: (mangaId: string, userId: string) =>
     req(`/manga/${mangaId}/expand`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId }) }),
 
+  enhanceManga: (mangaId: string, userId: string, instruction: string) =>
+    req(`/manga/${mangaId}/enhance`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId, instruction }) }),
+
   // Stripe
   checkout: (userId: string) =>
     req("/stripe/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId }) }),
