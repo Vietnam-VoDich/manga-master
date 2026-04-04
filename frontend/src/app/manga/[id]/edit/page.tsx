@@ -142,6 +142,7 @@ export default function MangaEditPage() {
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [dbUserId, setDbUserId] = useState<string>("")
+  const [mobileTab, setMobileTab] = useState<"story" | "chat">("chat")
 
   const leftPanelRef = useRef<HTMLDivElement>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
@@ -157,10 +158,11 @@ export default function MangaEditPage() {
   useEffect(() => {
     if (!manga) return
     if (manga.pages.length > prevPageCount.current && prevPageCount.current > 0) {
-      // New pages were added — scroll left panel to show them
+      // New pages were added — scroll left panel and switch to it on mobile
       if (leftPanelRef.current) {
         leftPanelRef.current.scrollTo({ top: leftPanelRef.current.scrollHeight, behavior: "smooth" })
       }
+      setMobileTab("story")
     }
     prevPageCount.current = manga.pages.length
   }, [manga?.pages.length])
@@ -271,13 +273,29 @@ export default function MangaEditPage() {
         </Link>
       </div>
 
+      {/* ── Mobile tabs ── */}
+      <div className="flex-shrink-0 flex sm:hidden border-b border-white/5">
+        <button
+          onClick={() => setMobileTab("chat")}
+          className={`flex-1 py-2.5 text-[9px] tracking-[3px] uppercase transition-colors ${mobileTab === "chat" ? "text-white/60 border-b border-white/30" : "text-white/20"}`}
+        >
+          Enhance
+        </button>
+        <button
+          onClick={() => setMobileTab("story")}
+          className={`flex-1 py-2.5 text-[9px] tracking-[3px] uppercase transition-colors ${mobileTab === "story" ? "text-white/60 border-b border-white/30" : "text-white/20"}`}
+        >
+          Pages
+        </button>
+      </div>
+
       {/* ── Two-column layout ── */}
       <div className="flex flex-1 min-h-0">
 
         {/* ── LEFT: Manga pages list ── */}
         <div
           ref={leftPanelRef}
-          className="w-1/2 border-r border-white/5 overflow-y-auto"
+          className={`sm:w-1/2 w-full border-r border-white/5 overflow-y-auto ${mobileTab === "story" ? "flex" : "hidden"} sm:flex flex-col`}
           style={{ scrollbarWidth: "none" }}
         >
           {/* Column header */}
@@ -301,7 +319,7 @@ export default function MangaEditPage() {
         </div>
 
         {/* ── RIGHT: Chat panel ── */}
-        <div className="w-1/2 flex flex-col min-h-0">
+        <div className={`sm:w-1/2 w-full flex flex-col min-h-0 ${mobileTab === "chat" ? "flex" : "hidden"} sm:flex`}>
 
           {/* Chat header */}
           <div className="flex-shrink-0 border-b border-white/5 px-5 py-4">

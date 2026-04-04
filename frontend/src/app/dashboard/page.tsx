@@ -160,7 +160,12 @@ function DashboardInner() {
                         Expand →
                       </button>
                     ) : (
-                      <span className="text-[9px] tracking-widest uppercase text-white/15">Upgrade to unlock</span>
+                      <button
+                        onClick={handleSubscribe}
+                        className="text-[9px] tracking-widest uppercase text-white/25 hover:text-white/60 transition-colors border border-white/10 hover:border-white/25 px-2 py-1"
+                      >
+                        Upgrade →
+                      </button>
                     )}
                   </div>
                 )}

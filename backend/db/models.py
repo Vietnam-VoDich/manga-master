@@ -33,6 +33,7 @@ class Manga(Base):
     pages = Column(JSON, default=[])            # [{type, image_url, caption, narration_url, ...}]
     audio_theme_url = Column(String)
     is_preview = Column(Boolean, default=True)
+    is_public = Column(Boolean, default=False)  # shared via link
     model_used = Column(String)                 # track which model generated it
     enhance_message = Column(String)            # last agent action description
     created_at = Column(DateTime, server_default=func.now())

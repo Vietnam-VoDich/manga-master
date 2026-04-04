@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { api } from "@/lib/api"
 
 type Step = "photo" | "story" | "generating"
+const LOAD_STEPS = ["Writing the story", "Drawing the panels", "Recording the narration"]
 
 export default function CreatePage() {
   const { user, isLoaded } = useUser()
@@ -17,8 +18,15 @@ export default function CreatePage() {
   const [recording, setRecording] = useState(false)
   const [dbUserId, setDbUserId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [loadStep, setLoadStep] = useState(0)
   const mediaRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
+
+  useEffect(() => {
+    if (step !== "generating") return
+    const t = setInterval(() => setLoadStep(s => (s + 1) % LOAD_STEPS.length), 2500)
+    return () => clearInterval(t)
+  }, [step])
 
   useEffect(() => {
     if (!isLoaded || !user) return
@@ -201,12 +209,15 @@ export default function CreatePage() {
         {/* GENERATING */}
         {step === "generating" && (
           <div className="text-center px-5">
-            <div className="font-serif text-7xl text-white/10 animate-pulse mb-8">漫</div>
-            <p className="text-sm text-white/40 mb-6">Generating your manga...</p>
-            <div className="space-y-2 text-[10px] text-white/15 tracking-widest">
-              <p>Writing the story</p>
-              <p>Drawing the panels</p>
-              <p>Recording the narration</p>
+            <div className="font-serif text-6xl text-white/10 animate-pulse mb-8">漫</div>
+            <p className="text-xs tracking-widest text-white/20 uppercase mb-10">Generating your manga...</p>
+            <div className="space-y-4">
+              {LOAD_STEPS.map((s, i) => (
+                <div key={s} className={`flex items-center gap-3 transition-all duration-700 ${i === loadStep ? "opacity-100" : "opacity-15"}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full transition-all duration-700 ${i === loadStep ? "bg-white/60" : "bg-white/20"}`} />
+                  <span className="text-[10px] tracking-[3px] uppercase text-white/40">{s}</span>
+                </div>
+              ))}
             </div>
           </div>
         )}

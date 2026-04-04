@@ -8,6 +8,25 @@ const geist = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Emaki — Turn anyone into a manga",
   description: "Upload a photo, describe someone, get a full AI-generated manga with voice narration and soundtrack.",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
+  openGraph: {
+    title: "Emaki — Turn anyone into a manga",
+    description: "Upload a photo, describe someone, get a full AI-generated manga with voice narration and soundtrack.",
+    url: "https://emaki.app",
+    siteName: "Emaki",
+    images: [{ url: "https://emaki.app/og-image.png", width: 2048, height: 1152 }],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Emaki — Turn anyone into a manga",
+    description: "Upload a photo, describe someone, get a full AI-generated manga with voice narration and soundtrack.",
+    images: ["https://emaki.app/og-image.png"],
+  },
 };
 
 export const viewport: Viewport = {

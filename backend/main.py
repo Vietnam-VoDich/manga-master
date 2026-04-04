@@ -3,9 +3,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from routers import manga, auth, stripe, webhooks, transcribe
 from core.config import FRONTEND_URL, STATIC_DIR
+from db.database import engine
+from sqlalchemy import text
 import os
 
 app = FastAPI(title="Manga Master API", version="1.0.0")
+
+# Run safe migrations on startup
+with engine.connect() as conn:
+    conn.execute(text("ALTER TABLE mangas ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT FALSE"))
+    conn.commit()
 
 _cors_origins = ["http://localhost:3000"]
 if FRONTEND_URL:

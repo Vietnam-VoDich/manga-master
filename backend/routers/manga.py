@@ -1,14 +1,15 @@
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from db.database import get_db
 from db.models import Manga, User
-from agents.story_agent import generate_story, generate_continuation, agent_decide
+from agents.story_agent import generate_story, generate_story_streaming, generate_continuation, agent_decide
 from services.image_service import generate_manga_image, manga_ify_photo
 from services.audio_service import generate_narration, generate_theme_music
 from services.storage_service import upload
 from core.auth import verify_clerk_token
 from typing import Optional
-import httpx
+import httpx, asyncio
 
 router = APIRouter()
 
@@ -85,7 +86,7 @@ def _pages_summary(pages: list) -> str:
 # ── background tasks ────────────────────────────────────────────────────────────
 
 async def _build_manga(manga_id: str, photo_bytes: bytes | None, db: Session):
-    """Full generation pipeline (preview or full depending on subscription)."""
+    """Full generation pipeline — streams pages to DB as each act completes."""
     manga = db.query(Manga).filter(Manga.id == manga_id).first()
     if not manga:
         return
@@ -96,19 +97,69 @@ async def _build_manga(manga_id: str, photo_bytes: bytes | None, db: Session):
         user = db.query(User).filter(User.id == manga.user_id).first() if manga.user_id else None
         preview_only = not (user and user.is_subscribed)
 
-        script = await generate_story(manga.subject_name, manga.subject_description, preview_only)
-        manga.title      = script.get("title")
-        manga.title_jp   = script.get("title_jp")
-        manga.tagline    = script.get("tagline")
-        manga.model_used = script.get("model_used")
+        pages = []
+        music_task = None
+        outline = {}
 
-        try:
-            music_bytes = await generate_theme_music(script.get("music_prompt", "cinematic dramatic orchestral slow"))
-            manga.audio_theme_url = await upload(music_bytes, "mp3", "themes")
-        except Exception:
-            manga.audio_theme_url = None
+        async for chunk in generate_story_streaming(manga.subject_name, manga.subject_description, preview_only):
+            if not outline and chunk.get("outline"):
+                # First chunk — outline arrived, set title/tagline and start music
+                outline = chunk["outline"]
+                manga.title      = outline.get("title")
+                manga.title_jp   = outline.get("title_jp")
+                manga.tagline    = outline.get("tagline")
+                manga.model_used = chunk.get("model_used")
+                manga.pages      = []
+                manga.status     = "streaming"
+                db.commit()
+                music_task = asyncio.create_task(
+                    generate_theme_music(outline.get("music_prompt", "cinematic dramatic orchestral slow"))
+                )
 
-        manga.pages = await _render_pages(script.get("pages", []), photo_bytes)
+            # Render new pages from this act
+            for page in chunk.get("new_pages", []):
+                if page["type"] == "text":
+                    pages.append(page)
+                elif page["type"] == "img":
+                    try:
+                        if photo_bytes:
+                            img_bytes = await manga_ify_photo(photo_bytes, page["image_prompt"])
+                        else:
+                            img_bytes = await generate_manga_image(page["image_prompt"])
+                        img_url = await upload(img_bytes, "png", "pages")
+                    except Exception:
+                        continue
+                    narr_url = None
+                    caption = page.get("caption", "")
+                    if caption:
+                        try:
+                            narr_bytes = await generate_narration(caption)
+                            narr_url = await upload(narr_bytes, "mp3", "narration")
+                        except Exception:
+                            pass
+                    pages.append({
+                        "type": "img",
+                        "image_url": img_url,
+                        "caption": caption,
+                        "bubble": page.get("bubble"),
+                        "narration_url": narr_url,
+                    })
+                elif page["type"] in ("climax", "ending"):
+                    pages.append(page)
+
+                # Commit after each page so frontend can poll and see it
+                manga.pages = list(pages)
+                flag_modified(manga, "pages")
+                db.commit()
+
+        # Collect music result
+        if music_task:
+            try:
+                music_bytes = await music_task
+                manga.audio_theme_url = await upload(music_bytes, "mp3", "themes")
+            except Exception:
+                manga.audio_theme_url = None
+
         manga.is_preview = preview_only
         manga.status = "preview" if preview_only else "complete"
         db.commit()
@@ -263,11 +314,27 @@ async def create_manga(
 
 
 @router.get("/{manga_id}")
-def get_manga(manga_id: str, db: Session = Depends(get_db)):
+def get_manga(manga_id: str, user_id: Optional[str] = None, db: Session = Depends(get_db)):
     manga = db.query(Manga).filter(Manga.id == manga_id).first()
     if not manga:
         raise HTTPException(404, "Not found")
+    # Allow access if: owner, guest (no user_id on manga), public, or still generating
+    if manga.user_id and not manga.is_public:
+        if not user_id or user_id != manga.user_id:
+            raise HTTPException(403, "Private")
     return manga
+
+
+@router.post("/{manga_id}/share")
+def toggle_share(manga_id: str, body: dict, db: Session = Depends(get_db), _claims: dict = Depends(verify_clerk_token)):
+    manga = db.query(Manga).filter(Manga.id == manga_id).first()
+    if not manga:
+        raise HTTPException(404, "Not found")
+    if manga.user_id != body.get("user_id"):
+        raise HTTPException(403, "Not your manga")
+    manga.is_public = not manga.is_public
+    db.commit()
+    return {"is_public": manga.is_public}
 
 
 @router.patch("/{manga_id}/claim")
@@ -333,7 +400,7 @@ def list_mangas(user_id: str, db: Session = Depends(get_db), _claims: dict = Dep
         result.append({
             "id": m.id, "title": m.title, "subject_name": m.subject_name,
             "title_jp": m.title_jp, "tagline": m.tagline,
-            "status": m.status, "is_preview": m.is_preview,
+            "status": m.status, "is_preview": m.is_preview, "is_public": m.is_public,
             "created_at": str(m.created_at),
             "cover_image": cover,
         })

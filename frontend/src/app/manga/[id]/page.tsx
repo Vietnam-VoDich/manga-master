@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { useUser, UserButton } from "@clerk/nextjs"
+import { api } from "@/lib/api"
 
 type MangaPage =
   | { type: "text"; act?: string; ch?: string; title?: string; date?: string; narr?: string }
@@ -17,11 +18,15 @@ type MangaData = {
   subject_name: string
   status: string
   is_preview: boolean
+  is_public: boolean
   pages: MangaPage[]
   audio_theme_url?: string
   title_jp?: string
   tagline?: string
+  user_id?: string
 }
+
+const LOAD_STEPS = ["Writing the story", "Drawing the panels", "Recording the narration"]
 
 export default function MangaReaderPage() {
   const { id } = useParams()
@@ -35,24 +40,47 @@ export default function MangaReaderPage() {
   const [showCover, setShowCover] = useState(true)
   const [polling, setPolling] = useState(true)
   const [copied, setCopied] = useState(false)
+  const [loadStep, setLoadStep] = useState(0)
+  const [dbUserId, setDbUserId] = useState("")
+  const [shareMsg, setShareMsg] = useState("")
+
+  // Animate loading steps
+  useEffect(() => {
+    if (!polling) return
+    const t = setInterval(() => setLoadStep(s => (s + 1) % LOAD_STEPS.length), 2500)
+    return () => clearInterval(t)
+  }, [polling])
+
+  // Fetch dbUser for subscribe
+  useEffect(() => {
+    if (!isLoaded || !user) return
+    api.upsertUser({
+      clerk_id: user.id,
+      email: user.primaryEmailAddress?.emailAddress ?? "",
+      name: user.fullName ?? undefined,
+    }).then((u: { id: string }) => setDbUserId(u.id)).catch(() => {})
+  }, [isLoaded, user])
 
   // Poll until manga is ready
   useEffect(() => {
     if (!polling) return
     const timer = setInterval(async () => {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/manga/${id}`)
+      const params = dbUserId ? `?user_id=${dbUserId}` : ""
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/manga/${id}${params}`)
       const data = await res.json()
-      if (data.status === "preview" || data.status === "complete" || data.status === "error") {
-        // Build upsell page for preview
-        const pages = [...data.pages]
-        if (data.is_preview) pages.push({ type: "upsell" })
-        setManga({ ...data, pages })
-        setPolling(false)
-        if (data.audio_theme_url) {
-          const a = new Audio(data.audio_theme_url)
-          a.loop = true
-          a.volume = 0.35
-          setAudio(a)
+      const done = data.status === "preview" || data.status === "complete" || data.status === "error"
+      const hasPages = data.pages?.length > 0
+      if (done || (data.status === "streaming" && hasPages)) {
+        const pages = [...(data.pages || [])]
+        if (done && data.is_preview) pages.push({ type: "upsell" })
+        setManga(prev => ({ ...data, pages, audio_theme_url: prev?.audio_theme_url || data.audio_theme_url }))
+        if (done) {
+          setPolling(false)
+          if (data.audio_theme_url) {
+            const a = new Audio(data.audio_theme_url)
+            a.loop = true; a.volume = 0.35
+            setAudio(a)
+          }
         }
       }
     }, 3000)
@@ -76,7 +104,6 @@ export default function MangaReaderPage() {
     return () => window.removeEventListener("keydown", onKey)
   }, [go])
 
-  // Touch
   let tx = 0
   const onTouchStart = (e: React.TouchEvent) => { tx = e.touches[0].clientX }
   const onTouchEnd = (e: React.TouchEvent) => {
@@ -91,14 +118,41 @@ export default function MangaReaderPage() {
   }
 
   const handleShare = async () => {
-    if (navigator.share && manga) {
+    if (!manga || !dbUserId) return
+    // If not public yet, make it public first
+    if (!manga.is_public) {
       try {
-        await navigator.share({ title: manga.title, text: manga.tagline, url: window.location.href })
+        await api.toggleShare(manga.id, dbUserId)
+        setManga(prev => prev ? { ...prev, is_public: true } : prev)
       } catch {}
+    }
+    const url = window.location.href
+    if (navigator.share) {
+      try { await navigator.share({ title: manga.title, text: manga.tagline, url }) } catch {}
     } else {
-      await navigator.clipboard.writeText(window.location.href)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      await navigator.clipboard.writeText(url)
+      setShareMsg("Link copied!")
+      setTimeout(() => setShareMsg(""), 2000)
+    }
+  }
+
+  const handleUnshare = async () => {
+    if (!manga || !dbUserId || !manga.is_public) return
+    try {
+      await api.toggleShare(manga.id, dbUserId)
+      setManga(prev => prev ? { ...prev, is_public: false } : prev)
+      setShareMsg("Private again")
+      setTimeout(() => setShareMsg(""), 2000)
+    } catch {}
+  }
+
+  const handleSubscribe = async () => {
+    if (!dbUserId) { window.location.href = "/dashboard"; return }
+    try {
+      const { url } = await api.checkout(dbUserId)
+      window.location.href = url
+    } catch {
+      window.location.href = "/dashboard"
     }
   }
 
@@ -107,22 +161,41 @@ export default function MangaReaderPage() {
     if (audio) { audio.play().catch(() => {}); setAudioOn(true) }
   }
 
+  // Loading screen
   if (!manga) {
     return (
       <div className="bg-black min-h-screen flex flex-col items-center justify-center">
-        <div className="font-serif text-6xl text-white/10 animate-pulse mb-6">漫</div>
-        <p className="text-xs tracking-widest text-white/20 uppercase">Generating your manga...</p>
-        <p className="text-[10px] text-white/10 mt-3 tracking-widest">Writing story · Drawing panels · Recording narration</p>
+        <div className="font-serif text-6xl text-white/10 animate-pulse mb-8">漫</div>
+        <p className="text-xs tracking-widest text-white/20 uppercase mb-10">Generating your manga...</p>
+        <div className="space-y-4">
+          {LOAD_STEPS.map((s, i) => (
+            <div key={s} className={`flex items-center gap-3 transition-all duration-700 ${i === loadStep ? "opacity-100" : "opacity-15"}`}>
+              <div className={`w-1.5 h-1.5 rounded-full transition-all duration-700 ${i === loadStep ? "bg-white/60" : "bg-white/20"}`} />
+              <span className="text-[10px] tracking-[3px] uppercase text-white/40">{s}</span>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
 
-  const page = manga.pages[cur]
-
+  // Cover screen — image background if available
   if (showCover) {
+    const coverImg = manga.pages.find(p => p.type === "img") as Extract<MangaPage, { type: "img" }> | undefined
     return (
-      <div className="bg-black min-h-screen flex items-center justify-center cursor-pointer" onClick={startBook}>
-        <div className="text-center px-8">
+      <div className="bg-black min-h-screen flex items-center justify-center cursor-pointer relative overflow-hidden" onClick={startBook}>
+        {coverImg && (
+          <>
+            <img
+              src={coverImg.image_url}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ filter: "brightness(0.22) contrast(1.2)" }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/20" />
+          </>
+        )}
+        <div className="relative text-center px-8">
           <div className="font-serif text-8xl font-black text-white/90 tracking-widest mb-4">{manga.title_jp || "漫"}</div>
           <div className="text-xs tracking-[8px] uppercase text-white/30 mb-3">{manga.title || manga.subject_name}</div>
           <div className="text-xs text-white/15 italic mb-12">{manga.tagline}</div>
@@ -137,6 +210,8 @@ export default function MangaReaderPage() {
     )
   }
 
+  const page = manga.pages[cur]
+
   return (
     <div
       className="bg-black min-h-screen flex items-center justify-center relative"
@@ -144,20 +219,25 @@ export default function MangaReaderPage() {
       onTouchEnd={onTouchEnd}
     >
       {/* Top bar */}
-      <div className="fixed top-3 right-3 z-50 flex items-center gap-2">
-        <button
-          onClick={handleShare}
-          className="w-7 h-7 rounded-full border border-white/10 bg-black/70 text-white/30 text-xs flex items-center justify-center hover:text-white/60 transition-colors"
-          title="Share"
-        >
-          {copied ? <span className="text-[8px] tracking-tight">✓</span> : "↗"}
-        </button>
-        <button
-          onClick={toggleAudio}
-          className="w-7 h-7 rounded-full border border-white/10 bg-black/70 text-white/30 text-xs flex items-center justify-center hover:text-white/60 transition-colors"
-        >
-          {audioOn ? "♫" : "♪"}
-        </button>
+      <div className="fixed top-3 right-3 z-50 flex items-center gap-3">
+        {shareMsg && <span className="text-[9px] tracking-widest text-white/40">{shareMsg}</span>}
+        {/* Share controls — only for owner */}
+        {isLoaded && user && dbUserId && manga.user_id === dbUserId && (
+          manga.is_public ? (
+            <button onClick={handleUnshare} className="text-[9px] tracking-widest uppercase text-green-500/50 hover:text-white/40 transition-colors">
+              Shared ✓
+            </button>
+          ) : (
+            <button onClick={handleShare} className="text-[9px] tracking-widest uppercase text-white/20 hover:text-white/50 transition-colors">
+              Share
+            </button>
+          )
+        )}
+        {audio && (
+          <button onClick={toggleAudio} className="text-white/20 hover:text-white/50 transition-colors text-[11px]">
+            {audioOn ? "♫" : "♪"}
+          </button>
+        )}
         {isLoaded && user && (
           <UserButton appearance={{ elements: { avatarBox: "w-7 h-7" } }} />
         )}
@@ -252,14 +332,20 @@ export default function MangaReaderPage() {
                   <>
                     <p className="text-[9px] tracking-[4px] uppercase text-white/20 mb-3">Your manga is saved</p>
                     <p className="font-serif text-xl sm:text-2xl text-white/80 font-semibold mb-3 leading-snug">The story continues...</p>
-                    <p className="text-xs text-white/30 mb-8 max-w-[220px] leading-relaxed">
-                      Subscribe to unlock the full 20+ page story, voice narration, and cinematic soundtrack.
+                    <p className="text-xs text-white/30 mb-6 max-w-[220px] leading-relaxed">
+                      Unlock the full 20+ page story, voice narration, and cinematic soundtrack.
                     </p>
+                    <button
+                      onClick={handleSubscribe}
+                      className="bg-white text-black text-[10px] tracking-[4px] uppercase px-8 py-3 font-semibold hover:bg-white/90 transition-all mb-3 w-full max-w-[220px]"
+                    >
+                      Subscribe $12/mo
+                    </button>
                     <Link
                       href="/dashboard"
-                      className="bg-white text-black text-[10px] tracking-[4px] uppercase px-8 py-3 font-semibold hover:bg-white/90 transition-all mb-3 block w-full max-w-[220px]"
+                      className="text-[9px] tracking-widest uppercase text-white/20 hover:text-white/40 transition-colors mb-4 block"
                     >
-                      Go to Dashboard
+                      Go to Dashboard →
                     </Link>
                     <Link href="/create" className="text-[9px] tracking-widest uppercase text-white/10 hover:text-white/25 transition-colors">
                       Create another manga →

@@ -22,7 +22,7 @@ def create_checkout(body: UserIdBody, db: Session = Depends(get_db), _claims: di
         customer_email=user.email,
         line_items=[{"price": STRIPE_PRICE_ID, "quantity": 1}],
         mode="subscription",
-        success_url=f"{FRONTEND_URL}/dashboard?subscribed=true",
+        success_url=f"{FRONTEND_URL}/payment-success",
         cancel_url=f"{FRONTEND_URL}/pricing",
         metadata={"user_id": body.user_id},
     )

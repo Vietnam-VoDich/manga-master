@@ -51,6 +51,9 @@ export const api = {
   enhanceManga: (mangaId: string, userId: string, instruction: string) =>
     req(`/manga/${mangaId}/enhance`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId, instruction }) }),
 
+  toggleShare: (mangaId: string, userId: string) =>
+    req(`/manga/${mangaId}/share`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId }) }),
+
   // Stripe
   checkout: (userId: string) =>
     req("/stripe/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId }) }),
