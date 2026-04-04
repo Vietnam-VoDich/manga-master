@@ -32,9 +32,12 @@ async def _build_manga(manga_id: str, photo_bytes: bytes | None, db: Session):
         manga.tagline    = script.get("tagline")
         manga.model_used = script.get("model_used")
 
-        # 2. Theme music
-        music_bytes = await generate_theme_music(script.get("music_prompt", "cinematic dramatic orchestral slow"))
-        manga.audio_theme_url = await upload(music_bytes, "mp3", "themes")
+        # 2. Theme music (non-fatal — manga still works without it)
+        try:
+            music_bytes = await generate_theme_music(script.get("music_prompt", "cinematic dramatic orchestral slow"))
+            manga.audio_theme_url = await upload(music_bytes, "mp3", "themes")
+        except Exception:
+            manga.audio_theme_url = None
 
         # 3. Pages
         pages = []
@@ -52,8 +55,11 @@ async def _build_manga(manga_id: str, photo_bytes: bytes | None, db: Session):
                 narr_url = None
                 caption = page.get("caption", "")
                 if caption:
-                    narr_bytes = await generate_narration(caption)
-                    narr_url = await upload(narr_bytes, "mp3", "narration")
+                    try:
+                        narr_bytes = await generate_narration(caption)
+                        narr_url = await upload(narr_bytes, "mp3", "narration")
+                    except Exception:
+                        narr_url = None
 
                 pages.append({
                     "type": "img",
