@@ -22,12 +22,17 @@ export default function SignUpPage() {
           },
           elements: {
             card: "shadow-none border border-white/10",
-            headerTitle: "font-serif tracking-widest",
-            socialButtonsBlockButton: "border-white/10",
-            formButtonPrimary: "text-black font-semibold tracking-widest uppercase text-xs",
-            footerActionLink: "text-white/40 hover:text-white/70",
-            formFieldInput: "!bg-[#0f0f0f] !text-white !border-white/10 !placeholder-white/20",
-            formFieldLabel: "!text-white/40",
+            headerTitle: "!text-white font-serif tracking-widest",
+            headerSubtitle: "!text-white/40",
+            socialButtonsBlockButton: "!border-white/10 !text-white/70",
+            socialButtonsBlockButtonText: "!text-white/70",
+            formButtonPrimary: "!bg-white !text-black font-semibold tracking-widest uppercase text-xs",
+            formFieldInput: "!bg-[#111] !text-white !border-white/10 placeholder:!text-white/20",
+            formFieldLabel: "!text-white/50",
+            footerActionText: "!text-white/30",
+            footerActionLink: "!text-white hover:!text-white/70",
+            dividerText: "!text-white/20",
+            dividerLine: "!bg-white/10",
           },
         }}
       />
