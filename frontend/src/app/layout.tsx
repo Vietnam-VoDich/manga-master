@@ -18,14 +18,14 @@ export const metadata: Metadata = {
     description: "Upload a photo, describe someone, get a full AI-generated manga with voice narration and soundtrack.",
     url: "https://emaki.app",
     siteName: "Emaki",
-    images: [{ url: "https://emaki.app/og-image.png", width: 2048, height: 1152 }],
+    images: [{ url: "https://www.emaki.app/og-image.png", width: 2048, height: 1152 }],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: "Emaki — Turn anyone into a manga",
     description: "Upload a photo, describe someone, get a full AI-generated manga with voice narration and soundtrack.",
-    images: ["https://emaki.app/og-image.png"],
+    images: ["https://www.emaki.app/og-image.png"],
   },
 };
 
