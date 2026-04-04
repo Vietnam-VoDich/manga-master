@@ -45,6 +45,9 @@ export const api = {
   claimManga: (mangaId: string, userId: string) =>
     req(`/manga/${mangaId}/claim`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId }) }),
 
+  expandManga: (mangaId: string, userId: string) =>
+    req(`/manga/${mangaId}/expand`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId }) }),
+
   // Stripe
   checkout: (userId: string) =>
     req("/stripe/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId }) }),

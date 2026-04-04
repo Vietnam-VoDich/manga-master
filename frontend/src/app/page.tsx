@@ -36,6 +36,22 @@ const SAMPLES = [
     cover: "/sample-manga-duong/mogul-portrait.png",
     href: "/sample/duong",
   },
+  {
+    kanji: "皇",
+    title: "The Little Corporal",
+    sub: "From Corsican outsider to Emperor of Europe. The rise and fall of Napoleon.",
+    era: "France · 1769–1821",
+    cover: "/sample-manga-napoleon/napoleon-crown.png",
+    href: "/sample/napoleon",
+  },
+  {
+    kanji: "知",
+    title: "Project Mario",
+    sub: "How DeepMind's dream of safe AI met the reality of the race to AGI.",
+    era: "London · 2010–Now",
+    cover: "/sample-manga-deepmind/war-room.png",
+    href: "/sample/deepmind",
+  },
 ]
 
 export default function LandingPage() {
@@ -114,7 +130,7 @@ export default function LandingPage() {
       <section className="px-5 sm:px-6 py-16 sm:py-24 border-t border-white/5">
         <p className="text-[9px] tracking-[5px] uppercase text-white/20 text-center mb-3">Sample stories</p>
         <p className="text-white/20 text-[10px] text-center mb-10 tracking-widest">Real mangas generated with this system</p>
-        <div className="max-w-sm sm:max-w-2xl mx-auto grid grid-cols-2 gap-1">
+        <div className="max-w-sm sm:max-w-3xl mx-auto grid grid-cols-2 sm:grid-cols-3 gap-1">
           {SAMPLES.map(s => (
             <Link key={s.title} href={s.href} className="group relative aspect-[2/3] overflow-hidden bg-zinc-950 cursor-pointer">
               <div

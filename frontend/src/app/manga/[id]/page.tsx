@@ -34,6 +34,7 @@ export default function MangaReaderPage() {
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null)
   const [showCover, setShowCover] = useState(true)
   const [polling, setPolling] = useState(true)
+  const [copied, setCopied] = useState(false)
 
   // Poll until manga is ready
   useEffect(() => {
@@ -89,6 +90,18 @@ export default function MangaReaderPage() {
     else { audio.play().catch(() => {}); setAudioOn(true) }
   }
 
+  const handleShare = async () => {
+    if (navigator.share && manga) {
+      try {
+        await navigator.share({ title: manga.title, text: manga.tagline, url: window.location.href })
+      } catch {}
+    } else {
+      await navigator.clipboard.writeText(window.location.href)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
   const startBook = () => {
     setShowCover(false)
     if (audio) { audio.play().catch(() => {}); setAudioOn(true) }
@@ -132,6 +145,13 @@ export default function MangaReaderPage() {
     >
       {/* Top bar */}
       <div className="fixed top-3 right-3 z-50 flex items-center gap-2">
+        <button
+          onClick={handleShare}
+          className="w-7 h-7 rounded-full border border-white/10 bg-black/70 text-white/30 text-xs flex items-center justify-center hover:text-white/60 transition-colors"
+          title="Share"
+        >
+          {copied ? <span className="text-[8px] tracking-tight">✓</span> : "↗"}
+        </button>
         <button
           onClick={toggleAudio}
           className="w-7 h-7 rounded-full border border-white/10 bg-black/70 text-white/30 text-xs flex items-center justify-center hover:text-white/60 transition-colors"

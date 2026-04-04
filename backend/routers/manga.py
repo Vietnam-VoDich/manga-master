@@ -119,6 +119,26 @@ def claim_manga(manga_id: str, body: dict, db: Session = Depends(get_db)):
     return manga
 
 
+@router.post("/{manga_id}/expand")
+async def expand_manga(manga_id: str, body: dict, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """Re-generate the full story for a subscribed user's preview manga."""
+    manga = db.query(Manga).filter(Manga.id == manga_id).first()
+    if not manga:
+        raise HTTPException(404, "Not found")
+    user_id = body.get("user_id")
+    user = db.query(User).filter(User.id == user_id).first() if user_id else None
+    if not user or not user.is_subscribed:
+        raise HTTPException(403, "Subscription required")
+    # Reset to pending so the reader shows "generating"
+    manga.status = "pending"
+    manga.is_preview = False
+    manga.pages = []
+    db.commit()
+    # Re-fetch photo if stored
+    background_tasks.add_task(_build_manga, manga_id, None, db)
+    return {"manga_id": manga_id, "status": "pending"}
+
+
 @router.get("/user/{user_id}")
 def list_mangas(user_id: str, db: Session = Depends(get_db), _claims: dict = Depends(verify_clerk_token)):
     return db.query(Manga).filter(Manga.user_id == user_id).order_by(Manga.created_at.desc()).all()

@@ -13,11 +13,12 @@ if FRONTEND_URL:
     # allow all *.vercel.app previews
 if "vercel.app" in (FRONTEND_URL or ""):
     _cors_origins.append("https://*.vercel.app")
+_cors_origins += ["https://emaki.app", "https://www.emaki.app"]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origin_regex=r"https://(.*\.vercel\.app|emaki\.app|www\.emaki\.app)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
