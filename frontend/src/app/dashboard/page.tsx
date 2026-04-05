@@ -179,7 +179,7 @@ function DashboardInner() {
                 )}
                 {/* Retry — error mangas */}
                 {m.status === "error" && (
-                  <div className="px-3 sm:px-4 pb-3">
+                  <div className="px-3 sm:px-4 pb-3 flex gap-2">
                     <button
                       onClick={async () => {
                         if (!dbUser) return
@@ -191,6 +191,18 @@ function DashboardInner() {
                       className="text-[9px] tracking-widest uppercase text-red-400/60 hover:text-white/60 transition-colors border border-red-500/20 hover:border-white/20 px-2 py-1"
                     >
                       Retry →
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!dbUser || !confirm("Delete this manga?")) return
+                        try {
+                          await api.deleteManga(m.id, dbUser.id)
+                          setMangas(prev => prev.filter(x => x.id !== m.id))
+                        } catch {}
+                      }}
+                      className="text-[9px] tracking-widest uppercase text-white/15 hover:text-red-400/60 transition-colors px-2 py-1"
+                    >
+                      Delete
                     </button>
                   </div>
                 )}

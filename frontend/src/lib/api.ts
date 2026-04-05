@@ -45,6 +45,9 @@ export const api = {
   claimManga: (mangaId: string, userId: string) =>
     req(`/manga/${mangaId}/claim`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId }) }),
 
+  deleteManga: (mangaId: string, userId: string) =>
+    req(`/manga/${mangaId}?user_id=${userId}`, { method: "DELETE" }),
+
   expandManga: (mangaId: string, userId: string) =>
     req(`/manga/${mangaId}/expand`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId }) }),
 

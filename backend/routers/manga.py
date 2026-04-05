@@ -398,6 +398,19 @@ def claim_manga(manga_id: str, body: dict, db: Session = Depends(get_db)):
     return manga
 
 
+@router.delete("/{manga_id}")
+def delete_manga(manga_id: str, user_id: Optional[str] = None, db: Session = Depends(get_db), _claims: dict = Depends(verify_clerk_token)):
+    """Delete a manga. Only the owner can delete."""
+    manga = db.query(Manga).filter(Manga.id == manga_id).first()
+    if not manga:
+        raise HTTPException(404, "Not found")
+    if not user_id or manga.user_id != user_id:
+        raise HTTPException(403, "Not your manga")
+    db.delete(manga)
+    db.commit()
+    return {"deleted": True}
+
+
 @router.post("/{manga_id}/expand")
 async def expand_manga(manga_id: str, body: dict, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """Continue a preview manga into a full story. Keeps Act I, adds Acts II-V."""

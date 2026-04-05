@@ -67,7 +67,7 @@ Output ONLY valid JSON:
       "type": "img",
       "image_prompt": "detailed scene — end with: black and white manga ink style, dramatic, high contrast",
       "caption": "caption text, use <em>word</em> for emphasis",
-      "bubble": "speech bubble text or null"
+      "bubble": "short speech bubble text (plain text, no HTML tags) or null"
     }
   ]
 }
@@ -75,8 +75,10 @@ Output ONLY valid JSON:
 Rules:
 - EXACTLY 1 text page + 1-3 image pages per act
 - Be SPECIFIC. Use the person's actual habits, quirks, and details.
+- CRITICAL: Each image_prompt MUST describe a COMPLETELY DIFFERENT scene, angle, location, or moment. Never repeat the same setting or composition across panels. Vary: close-up vs wide shot, indoor vs outdoor, different characters in frame, different actions, different times of day.
 - Image prompts = real scenes with real people doing real things, not abstract.
 - narr: MAX 3 short punchy sentences. Rhythmic, not paragraphs.
+- bubble: plain text only, NO HTML tags like <em>. Keep it short and punchy.
 - Find both the comedy AND the heart."""
 
 
@@ -233,7 +235,7 @@ async def generate_story(subject_name: str, description: str, preview_only: bool
 TONE_INSTRUCTIONS = {
     "emotional": "Write with deep emotional resonance — heartfelt, moving, bittersweet. Find the humanity in their story. Make the reader feel something real.",
     "humorous": "Write with warmth and wit — light comedy, charming observations, gentle jokes about their quirks. Fun but respectful.",
-    "roast": "Write like a comedy roast — savage, brutally funny, exaggerated. Roast their habits, quirks, and life choices mercilessly. Think stand-up comedy, not mean-spirited. The funnier the better.",
+    "roast": "Write like a brutal comedy roast between best friends. Savage, exaggerated, wildly funny. Roast their habits, quirks, dating life, and life choices mercilessly. Make up embarrassing fictional scenarios based on their real traits. Think: what their best friend would say at a roast dinner after 5 drinks. Spicy, edgy, absurd situations — but always funny, never cruel. The more specific and personal the joke, the better.",
 }
 
 
