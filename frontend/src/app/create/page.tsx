@@ -160,8 +160,13 @@ export default function CreatePage() {
                 <button onClick={() => { setPhoto(null); setPhotoPreview(null) }} className="text-[9px] tracking-widest uppercase text-white/20 hover:text-white/40 transition-colors">Remove</button>
               </div>
             ) : (
-              <label className="flex items-center justify-center gap-2 mb-6 cursor-pointer group">
-                <span className="text-[9px] tracking-widest uppercase text-white/20 group-hover:text-white/40 transition-colors border border-white/10 group-hover:border-white/20 px-3 py-2">+ Add photo</span>
+              <label
+                className="group border border-white/10 w-full max-w-[200px] aspect-[3/4] mx-auto flex flex-col items-center justify-center cursor-pointer hover:border-white/30 active:border-white/40 transition-all block mb-6"
+                onDragOver={e => e.preventDefault()}
+                onDrop={handleDrop}
+              >
+                <span className="text-3xl text-white/10 group-hover:text-white/30 transition-colors mb-2">+</span>
+                <span className="text-[9px] tracking-widest uppercase text-white/20 group-hover:text-white/40 transition-colors">Drop photo or click</span>
                 <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handlePhoto(f) }} />
               </label>
             )}
