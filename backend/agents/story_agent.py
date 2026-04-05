@@ -13,9 +13,15 @@ from core.config import (
     AZURE_OPENAI_KEY, AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_DEPLOYMENT, AZURE_OPENAI_API_VERSION,
     AZURE_FALLBACK_KEY, AZURE_FALLBACK_ENDPOINT, AZURE_FALLBACK_DEPLOYMENT, AZURE_FALLBACK_API_VERSION,
 )
-import json, logging
+import os, json, logging
 
 logger = logging.getLogger(__name__)
+
+# Model tiers — same endpoint, different deployments
+# Planner (outline + ending): strongest model for creative story planning
+# Writer (per-act pages): faster model, just follows the plan
+PLANNER_DEPLOYMENT = os.getenv("AZURE_PLANNER_DEPLOYMENT", "gpt-5.4")
+WRITER_DEPLOYMENT  = os.getenv("AZURE_WRITER_DEPLOYMENT", "gpt-5.4-mini")
 
 def _primary_client() -> tuple[AzureOpenAI, str]:
     return AzureOpenAI(
@@ -23,6 +29,22 @@ def _primary_client() -> tuple[AzureOpenAI, str]:
         azure_endpoint=AZURE_OPENAI_ENDPOINT,
         api_version=AZURE_OPENAI_API_VERSION,
     ), AZURE_OPENAI_DEPLOYMENT
+
+def _planner_client() -> tuple[AzureOpenAI, str]:
+    """GPT-5.4 for outline + ending — needs strong creative planning."""
+    return AzureOpenAI(
+        api_key=AZURE_OPENAI_KEY,
+        azure_endpoint=AZURE_OPENAI_ENDPOINT,
+        api_version=AZURE_OPENAI_API_VERSION,
+    ), PLANNER_DEPLOYMENT
+
+def _writer_client() -> tuple[AzureOpenAI, str]:
+    """GPT-5.4-mini for per-act pages — follows the plan, fast + cheap."""
+    return AzureOpenAI(
+        api_key=AZURE_OPENAI_KEY,
+        azure_endpoint=AZURE_OPENAI_ENDPOINT,
+        api_version=AZURE_OPENAI_API_VERSION,
+    ), WRITER_DEPLOYMENT
 
 def _fallback_client() -> tuple[AzureOpenAI, str]:
     return AzureOpenAI(
@@ -164,19 +186,24 @@ def _call_with_system(client: AzureOpenAI, deployment: str, system: str, prompt:
     return json.loads(content)
 
 
-def _try_primary_then_fallback(system: str, prompt: str, max_tokens: int = 3000) -> tuple[dict, str]:
-    """Try primary model, fall back to secondary. Returns (result, model_used)."""
+def _try_with_fallback(client_fn, system: str, prompt: str, max_tokens: int = 3000) -> tuple[dict, str]:
+    """Try given client, fall back to secondary. Returns (result, model_used)."""
     try:
-        client, deployment = _primary_client()
+        client, deployment = client_fn()
         result = _call_with_system(client, deployment, system, prompt, max_tokens)
-        logger.info(f"Generated with primary: {deployment}")
-        return result, AZURE_OPENAI_DEPLOYMENT
+        logger.info(f"Generated with: {deployment}")
+        return result, deployment
     except Exception as e:
-        logger.warning(f"Primary ({AZURE_OPENAI_DEPLOYMENT}) failed: {e} — trying fallback")
+        logger.warning(f"{client_fn.__name__} failed: {e} — trying fallback")
         client, deployment = _fallback_client()
         result = _call_with_system(client, deployment, system, prompt, max_tokens)
         logger.info(f"Generated with fallback: {deployment}")
-        return result, AZURE_FALLBACK_DEPLOYMENT
+        return result, deployment
+
+
+def _try_primary_then_fallback(system: str, prompt: str, max_tokens: int = 3000) -> tuple[dict, str]:
+    """Legacy wrapper — uses primary client."""
+    return _try_with_fallback(_primary_client, system, prompt, max_tokens)
 
 
 # ── public API ─────────────────────────────────────────────────────────────────
@@ -196,7 +223,7 @@ async def generate_story(subject_name: str, description: str, preview_only: bool
     # 1. Outline
     num_acts = 1 if preview_only else 5
     outline_prompt = f"{base_prompt}\n\nPlan a {'PREVIEW (1 act only)' if preview_only else 'FULL (4-5 acts)'} manga."
-    outline, model_used = _try_primary_then_fallback(OUTLINE_SYSTEM, outline_prompt, max_tokens=600)
+    outline, model_used = _try_with_fallback(_planner_client, OUTLINE_SYSTEM, outline_prompt, max_tokens=1000)
 
     act_names = outline.get("acts", ["Act I — The Setup"])[:num_acts]
 
@@ -211,7 +238,7 @@ async def generate_story(subject_name: str, description: str, preview_only: bool
             + (f"Story so far:\n{story_so_far}\n\n" if story_so_far else "")
             + f"Now write pages for: {act_name}"
         )
-        act_result, _ = _try_primary_then_fallback(ACT_SYSTEM, act_prompt, max_tokens=2000)
+        act_result, _ = _try_with_fallback(_writer_client, ACT_SYSTEM, act_prompt, max_tokens=2000)
         pages = act_result.get("pages", [])
         all_pages.extend(pages)
         # Brief summary for context in next act
@@ -226,7 +253,7 @@ async def generate_story(subject_name: str, description: str, preview_only: bool
             f"Story arc: {story_so_far}\n\n"
             "Write the climax and ending."
         )
-        ending, _ = _try_primary_then_fallback(ENDING_SYSTEM, ending_prompt, max_tokens=500)
+        ending, _ = _try_with_fallback(_planner_client, ENDING_SYSTEM, ending_prompt, max_tokens=500)
         all_pages.append({"type": "climax", "quote": ending.get("climax_quote", ""), "attr": ending.get("climax_attr", "")})
         all_pages.append({"type": "ending", "ending_text": ending.get("ending_text", ""), "ending_kanji": ending.get("ending_kanji", "終")})
 
@@ -256,9 +283,9 @@ async def generate_story_streaming(subject_name: str, description: str, preview_
     base_prompt = f"Person: {subject_name}\nAbout them: {description}\n\nTone: {tone_instruction}"
     num_acts = 1 if preview_only else 5
 
-    # 1. Outline
+    # 1. Outline — use planner (GPT-5.4) for creative story planning
     outline_prompt = f"{base_prompt}\n\nPlan a {'PREVIEW (1 act only)' if preview_only else 'FULL (4-5 acts)'} manga."
-    outline, model_used = _try_primary_then_fallback(OUTLINE_SYSTEM, outline_prompt, max_tokens=1000)
+    outline, model_used = _try_with_fallback(_planner_client, OUTLINE_SYSTEM, outline_prompt, max_tokens=1000)
     yield {"outline": outline, "model_used": model_used, "new_pages": [], "done": False}
 
     # Parse acts — support both old ["Act I — Name"] and new [{"name": ..., "plot": ...}] format
@@ -289,7 +316,7 @@ async def generate_story_streaming(subject_name: str, description: str, preview_
             + avoid_clause
             + f"Now write pages for: {act['name']}\nPlot for this act: {act['plot']}"
         )
-        act_result, _ = _try_primary_then_fallback(ACT_SYSTEM, act_prompt, max_tokens=2000)
+        act_result, _ = _try_with_fallback(_writer_client, ACT_SYSTEM, act_prompt, max_tokens=2000)
         pages = act_result.get("pages", [])
         titles = [p.get("title", "") for p in pages if p.get("type") == "text"]
         prev_image_prompts.extend(p.get("image_prompt", "") for p in pages if p.get("type") == "img")
@@ -303,7 +330,7 @@ async def generate_story_streaming(subject_name: str, description: str, preview_
             f"Manga: {outline.get('title')}\n"
             f"Story arc: {story_so_far}\n\nWrite the climax and ending."
         )
-        ending, _ = _try_primary_then_fallback(ENDING_SYSTEM, ending_prompt, max_tokens=500)
+        ending, _ = _try_with_fallback(_planner_client, ENDING_SYSTEM, ending_prompt, max_tokens=500)
         ending_pages = [
             {"type": "climax", "quote": ending.get("climax_quote", ""), "attr": ending.get("climax_attr", "")},
             {"type": "ending", "ending_text": ending.get("ending_text", ""), "ending_kanji": ending.get("ending_kanji", "終")},
@@ -339,7 +366,7 @@ async def generate_continuation(subject_name: str, description: str, act_one_pag
             + avoid_clause
             + f"Write pages for: {act_name}"
         )
-        act_result, _ = _try_primary_then_fallback(ACT_SYSTEM, act_prompt, max_tokens=2000)
+        act_result, _ = _try_with_fallback(_writer_client, ACT_SYSTEM, act_prompt, max_tokens=2000)
         pages = act_result.get("pages", [])
         all_pages.extend(pages)
         titles = [p.get("title", "") for p in pages if p.get("type") == "text"]
@@ -351,7 +378,7 @@ async def generate_continuation(subject_name: str, description: str, act_one_pag
         f"Manga: {title}\nTagline: {tagline}\n\n"
         f"Story arc: {story_so_far}\n\nWrite the climax and ending."
     )
-    ending, _ = _try_primary_then_fallback(ENDING_SYSTEM, ending_prompt, max_tokens=500)
+    ending, _ = _try_with_fallback(_planner_client, ENDING_SYSTEM, ending_prompt, max_tokens=500)
     all_pages.append({"type": "climax", "quote": ending.get("climax_quote", ""), "attr": ending.get("climax_attr", "")})
     all_pages.append({"type": "ending", "ending_text": ending.get("ending_text", ""), "ending_kanji": ending.get("ending_kanji", "終")})
 
@@ -366,5 +393,5 @@ async def agent_decide(subject_name: str, title: str, tagline: str, pages_summar
         f"Current story ({len(pages_summary.splitlines())} pages):\n{pages_summary}\n\n"
         f"User instruction: {instruction}"
     )
-    result, _ = _try_primary_then_fallback(AGENT_SYSTEM, prompt, max_tokens=3000)
+    result, _ = _try_with_fallback(_planner_client, AGENT_SYSTEM, prompt, max_tokens=3000)
     return result
