@@ -57,6 +57,13 @@ export default function MangaReaderPage() {
     return () => clearInterval(t)
   }, [polling])
 
+  // Clean up audio on unmount (navigating away)
+  useEffect(() => {
+    return () => {
+      if (audio) { audio.pause(); audio.currentTime = 0 }
+    }
+  }, [audio])
+
   // Fetch dbUser for subscribe
   useEffect(() => {
     if (!isLoaded || !user) return
@@ -70,47 +77,52 @@ export default function MangaReaderPage() {
     }).catch(() => {})
   }, [isLoaded, user])
 
+  // Helper: fetch manga and update state
+  const fetchManga = useCallback(async (userId: string) => {
+    try {
+      const params = userId ? `?user_id=${userId}` : ""
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/manga/${id}${params}`)
+      if (res.status === 403) {
+        if (!isLoaded) return
+        if (!user) { setError("private"); setPolling(false); return }
+        if (!userId) return
+        setError("private"); setPolling(false); return
+      }
+      if (!res.ok) { setError("notfound"); setPolling(false); return }
+      const data = await res.json()
+      const done = data.status === "preview" || data.status === "complete" || data.status === "error"
+      const hasPages = data.pages?.length > 0
+      if (done || (hasPages && (data.status === "streaming" || data.status === "generating"))) {
+        const pages = [...(data.pages || [])]
+        if (done && data.is_preview) pages.push({ type: "upsell" })
+        if (done && !data.is_preview && data.status === "complete") pages.push({ type: "after" })
+        setManga(prev => ({ ...data, pages, audio_theme_url: prev?.audio_theme_url || data.audio_theme_url }))
+        if (data.audio_theme_url) {
+          setAudio(prev => {
+            if (prev) return prev
+            const a = new Audio(data.audio_theme_url)
+            a.loop = true; a.volume = 0.35
+            return a
+          })
+        }
+        if (done) setPolling(false)
+      }
+    } catch {}
+  }, [id, isLoaded, user])
+
   // Poll until manga is ready
   useEffect(() => {
     if (!polling) return
-    const timer = setInterval(async () => {
-      try {
-        const params = dbUserId ? `?user_id=${dbUserId}` : ""
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/manga/${id}${params}`)
-        if (res.status === 403) {
-          // Manga is private — if user not loaded yet, wait; otherwise show error
-          if (!isLoaded) return
-          if (!user) { setError("private"); setPolling(false); return }
-          // User is loaded but still 403 — wait for dbUserId to populate
-          if (!dbUserId) return
-          setError("private"); setPolling(false); return
-        }
-        if (!res.ok) { setError("notfound"); setPolling(false); return }
-        const data = await res.json()
-        const done = data.status === "preview" || data.status === "complete" || data.status === "error"
-        const hasPages = data.pages?.length > 0
-        if (done || (hasPages && (data.status === "streaming" || data.status === "generating"))) {
-          const pages = [...(data.pages || [])]
-          if (done && data.is_preview) pages.push({ type: "upsell" })
-          if (done && !data.is_preview && data.status === "complete") pages.push({ type: "after" })
-          setManga(prev => ({ ...data, pages, audio_theme_url: prev?.audio_theme_url || data.audio_theme_url }))
-          // Set up audio player as soon as music URL is available, even mid-stream
-          if (data.audio_theme_url) {
-            setAudio(prev => {
-              if (prev) return prev // already set up
-              const a = new Audio(data.audio_theme_url)
-              a.loop = true; a.volume = 0.35
-              return a
-            })
-          }
-          if (done) {
-            setPolling(false)
-          }
-        }
-      } catch {}
-    }, 3000)
+    const timer = setInterval(() => fetchManga(dbUserId), 3000)
     return () => clearInterval(timer)
-  }, [id, polling, dbUserId, isLoaded, user])
+  }, [polling, dbUserId, fetchManga])
+
+  // Re-fetch with user_id once auth loads so ownership info is present
+  useEffect(() => {
+    if (dbUserId && manga && !manga.user_id) {
+      fetchManga(dbUserId)
+    }
+  }, [dbUserId, manga, fetchManga])
 
   const go = useCallback((dir: 1 | -1) => {
     if (!manga) return
