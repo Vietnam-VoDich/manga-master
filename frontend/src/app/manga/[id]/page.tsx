@@ -84,9 +84,11 @@ export default function MangaReaderPage() {
       const params = userId ? `?user_id=${userId}` : ""
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/manga/${id}${params}`)
       if (res.status === 403) {
-        if (!isLoaded) return
-        if (!user) { setError("private"); setPolling(false); return }
-        if (!userId) return
+        if (!userId) {
+          // No auth yet — stop polling, wait for auth to load then re-fetch
+          setPolling(false)
+          return
+        }
         setError("private"); setPolling(false); return
       }
       if (!res.ok) { setError("notfound"); setPolling(false); return }
@@ -118,8 +120,12 @@ export default function MangaReaderPage() {
     return () => clearInterval(timer)
   }, [polling, dbUserId, fetchManga])
 
-  // Re-fetch with user_id once auth loads so ownership info is present
+  // Re-fetch with user_id once auth loads (handles 403 → auth → retry)
   useEffect(() => {
+    if (dbUserId && !polling && !error) {
+      // Auth loaded after polling stopped (403) — restart
+      setPolling(true)
+    }
     if (dbUserId && manga && !manga.user_id) {
       fetchManga(dbUserId)
     }
