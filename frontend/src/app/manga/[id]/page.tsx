@@ -42,6 +42,7 @@ export default function MangaReaderPage() {
   const [copied, setCopied] = useState(false)
   const [loadStep, setLoadStep] = useState(0)
   const [dbUserId, setDbUserId] = useState("")
+  const [isSubscribed, setIsSubscribed] = useState(false)
   const [shareMsg, setShareMsg] = useState("")
   const [error, setError] = useState("")
 
@@ -59,7 +60,10 @@ export default function MangaReaderPage() {
       clerk_id: user.id,
       email: user.primaryEmailAddress?.emailAddress ?? "",
       name: user.fullName ?? undefined,
-    }).then((u: { id: string }) => setDbUserId(u.id)).catch(() => {})
+    }).then((u: { id: string; is_subscribed: boolean }) => {
+      setDbUserId(u.id)
+      setIsSubscribed(u.is_subscribed)
+    }).catch(() => {})
   }, [isLoaded, user])
 
   // Poll until manga is ready
@@ -135,21 +139,16 @@ export default function MangaReaderPage() {
 
   const handleShare = async () => {
     if (!manga || !dbUserId) return
-    // If not public yet, make it public first
     if (!manga.is_public) {
       try {
         await api.toggleShare(manga.id, dbUserId)
         setManga(prev => prev ? { ...prev, is_public: true } : prev)
       } catch {}
     }
-    const url = window.location.href
-    if (navigator.share) {
-      try { await navigator.share({ title: manga.title, text: manga.tagline, url }) } catch {}
-    } else {
-      await navigator.clipboard.writeText(url)
-      setShareMsg("Link copied!")
-      setTimeout(() => setShareMsg(""), 2000)
-    }
+    const url = `${window.location.origin}/manga/${manga.id}`
+    await navigator.clipboard.writeText(url)
+    setShareMsg("Link copied!")
+    setTimeout(() => setShareMsg(""), 2000)
   }
 
   const handleUnshare = async () => {
@@ -403,6 +402,24 @@ export default function MangaReaderPage() {
               {/* Right — CTA */}
               <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 text-center bg-[#050505]">
                 {isLoaded && user ? (
+                  isSubscribed ? (
+                    <>
+                      <p className="text-[9px] tracking-[4px] uppercase text-white/20 mb-3">Subscription active</p>
+                      <p className="font-serif text-xl sm:text-2xl text-white/80 font-semibold mb-3 leading-snug">Expand your story</p>
+                      <p className="text-xs text-white/30 mb-6 max-w-[220px] leading-relaxed">
+                        Go to your dashboard to expand this manga into the full 20+ page story.
+                      </p>
+                      <Link
+                        href="/dashboard"
+                        className="bg-white text-black text-[10px] tracking-[4px] uppercase px-8 py-3 font-semibold hover:bg-white/90 transition-all mb-3 block w-full max-w-[220px] text-center"
+                      >
+                        Go to Dashboard →
+                      </Link>
+                      <Link href="/create" className="text-[9px] tracking-widest uppercase text-white/20 hover:text-white/40 transition-colors">
+                        Create another manga →
+                      </Link>
+                    </>
+                  ) : (
                   <>
                     <p className="text-[9px] tracking-[4px] uppercase text-white/20 mb-3">Your manga is saved</p>
                     <p className="font-serif text-xl sm:text-2xl text-white/80 font-semibold mb-3 leading-snug">The story continues...</p>
@@ -425,6 +442,7 @@ export default function MangaReaderPage() {
                       Create another manga →
                     </Link>
                   </>
+                  )
                 ) : (
                   <>
                     <p className="text-[9px] tracking-[4px] uppercase text-white/20 mb-3">Your manga is ready</p>
@@ -450,6 +468,7 @@ export default function MangaReaderPage() {
                   </>
                 )}
               </div>
+
             </div>
           )
         })()}
