@@ -85,7 +85,7 @@ export default function MangaReaderPage() {
         const data = await res.json()
         const done = data.status === "preview" || data.status === "complete" || data.status === "error"
         const hasPages = data.pages?.length > 0
-        if (done || (data.status === "streaming" && hasPages)) {
+        if (done || (hasPages && (data.status === "streaming" || data.status === "generating"))) {
           const pages = [...(data.pages || [])]
           if (done && data.is_preview) pages.push({ type: "upsell" })
           setManga(prev => ({ ...data, pages, audio_theme_url: prev?.audio_theme_url || data.audio_theme_url }))
