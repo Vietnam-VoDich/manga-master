@@ -11,6 +11,7 @@ type MangaPage =
   | { type: "climax"; quote: string; attr?: string }
   | { type: "ending"; ending_text?: string; ending_kanji?: string }
   | { type: "upsell" }
+  | { type: "after" }
 
 type MangaData = {
   id: string
@@ -45,6 +46,8 @@ export default function MangaReaderPage() {
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [shareMsg, setShareMsg] = useState("")
   const [error, setError] = useState("")
+  const [enhanceText, setEnhanceText] = useState("")
+  const [isEnhancing, setIsEnhancing] = useState(false)
 
   // Animate loading steps
   useEffect(() => {
@@ -88,6 +91,7 @@ export default function MangaReaderPage() {
         if (done || (hasPages && (data.status === "streaming" || data.status === "generating"))) {
           const pages = [...(data.pages || [])]
           if (done && data.is_preview) pages.push({ type: "upsell" })
+          if (done && !data.is_preview && data.status === "complete") pages.push({ type: "after" })
           setManga(prev => ({ ...data, pages, audio_theme_url: prev?.audio_theme_url || data.audio_theme_url }))
           // Set up audio player as soon as music URL is available, even mid-stream
           if (data.audio_theme_url) {
@@ -169,6 +173,18 @@ export default function MangaReaderPage() {
     } catch {
       window.location.href = "/dashboard"
     }
+  }
+
+  const handleEnhance = async () => {
+    if (!enhanceText.trim() || !dbUserId || !manga) return
+    setIsEnhancing(true)
+    try {
+      await api.enhanceManga(manga.id, dbUserId, enhanceText)
+      setEnhanceText("")
+      setCur(manga.pages.length - 2) // go back to ending page (before "after")
+      setPolling(true)
+    } catch {}
+    setIsEnhancing(false)
   }
 
   const startBook = () => {
@@ -386,6 +402,50 @@ export default function MangaReaderPage() {
               />
             )}
             <div className="font-serif text-3xl text-[#222] mt-8 tracking-widest">{page.ending_kanji || "終"}</div>
+          </div>
+        )}
+
+        {page.type === "after" && (
+          <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 text-center gap-7 overflow-y-auto">
+            <div>
+              <div className="font-serif text-5xl text-[#181818] tracking-widest mb-2">終</div>
+              <p className="text-[9px] tracking-[5px] uppercase text-[#252525]">The End</p>
+            </div>
+            <div className="flex flex-col gap-2 w-full max-w-[240px]">
+              {isLoaded && user && dbUserId && manga.user_id === dbUserId && (
+                <button
+                  onClick={handleShare}
+                  className="text-[10px] tracking-[3px] uppercase text-white/30 hover:text-white/60 border border-white/10 hover:border-white/25 px-6 py-3 transition-all w-full"
+                >
+                  {shareMsg || "Share this manga"}
+                </button>
+              )}
+              <Link
+                href="/create"
+                className="text-[10px] tracking-[3px] uppercase text-white/15 hover:text-white/35 border border-white/5 hover:border-white/15 px-6 py-3 transition-all block"
+              >
+                Create another →
+              </Link>
+            </div>
+            {isLoaded && user && dbUserId && manga.user_id === dbUserId && isSubscribed && (
+              <div className="w-full max-w-[280px]">
+                <p className="text-[9px] tracking-[3px] uppercase text-[#252525] mb-3">Continue the story</p>
+                <textarea
+                  className="w-full bg-[#0c0c0c] border border-[#1a1a1a] focus:border-white/15 text-white/50 text-xs px-3 py-2 resize-none outline-none placeholder:text-[#252525] transition-colors"
+                  rows={3}
+                  placeholder="What should happen next?"
+                  value={enhanceText}
+                  onChange={e => setEnhanceText(e.target.value)}
+                />
+                <button
+                  onClick={handleEnhance}
+                  disabled={!enhanceText.trim() || isEnhancing}
+                  className="mt-2 w-full text-[9px] tracking-[3px] uppercase border border-white/10 text-white/25 hover:text-white/60 hover:border-white/25 py-2.5 transition-all disabled:opacity-20"
+                >
+                  {isEnhancing ? "Working..." : "Apply →"}
+                </button>
+              </div>
+            )}
           </div>
         )}
 
