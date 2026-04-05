@@ -199,7 +199,26 @@ async def _continue_manga(manga_id: str, db: Session):
             manga.tagline or "",
         )
 
+        # Start music generation in parallel if not already present
+        music_task = None
+        if not manga.audio_theme_url:
+            music_prompt = script.get("music_prompt", "cinematic dramatic orchestral slow")
+            async def _save_music_continue(prompt: str, mid: str):
+                try:
+                    music_bytes = await generate_theme_music(prompt)
+                    music_url = await upload(music_bytes, "mp3", "themes")
+                    m = db.query(Manga).filter(Manga.id == mid).first()
+                    if m:
+                        m.audio_theme_url = music_url
+                        db.commit()
+                except Exception:
+                    pass
+            music_task = asyncio.create_task(_save_music_continue(music_prompt, manga_id))
+
         new_pages = await _render_pages(script.get("pages", []), photo_bytes)
+
+        if music_task:
+            await asyncio.shield(music_task)
 
         manga.pages = act_one_pages + new_pages
         manga.is_preview = False
