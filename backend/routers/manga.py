@@ -16,6 +16,21 @@ router = APIRouter()
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 
+def _compress_image(raw_bytes: bytes, quality: int = 80) -> bytes:
+    """Compress image to JPEG for faster loading."""
+    from PIL import Image
+    import io
+    try:
+        img = Image.open(io.BytesIO(raw_bytes))
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=quality, optimize=True)
+        return buf.getvalue()
+    except Exception:
+        return raw_bytes  # fallback to original
+
+
 async def _render_one_image(page: dict, photo_bytes: bytes | None) -> dict | None:
     """Render a single image page — generate image + narration."""
     try:
@@ -23,7 +38,8 @@ async def _render_one_image(page: dict, photo_bytes: bytes | None) -> dict | Non
             img_bytes = await manga_ify_photo(photo_bytes, page["image_prompt"])
         else:
             img_bytes = await generate_manga_image(page["image_prompt"])
-        img_url = await upload(img_bytes, "png", "pages")
+        img_bytes = _compress_image(img_bytes)
+        img_url = await upload(img_bytes, "jpg", "pages")
     except Exception:
         return None
 

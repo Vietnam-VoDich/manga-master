@@ -41,13 +41,21 @@ Output ONLY valid JSON:
   "title": "manga title (English)",
   "title_jp": "1-2 meaningful Japanese kanji",
   "tagline": "one punchy line",
-  "acts": ["Act I — The Setup", "Act II — The Struggle", "Act III — The Turn", "Act IV — The Cost", "Act V — The Resolution"],
+  "acts": [
+    {"name": "Act I — The Setup", "plot": "1-2 sentence summary of what happens in this act"},
+    {"name": "Act II — The Struggle", "plot": "..."},
+    {"name": "Act III — The Turn", "plot": "..."},
+    {"name": "Act IV — The Cost", "plot": "..."},
+    {"name": "Act V — The Resolution", "plot": "..."}
+  ],
   "music_prompt": "20-word ambient music description — mood, instruments, tempo"
 }
 
 Rules:
 - 4-5 acts for full manga, 1 act for preview
 - Act names should reflect the person's specific story arc
+- Each act's plot must advance the story — no repetition, clear progression
+- Plan the FULL arc upfront: setup → escalation → twist → consequences → resolution
 - Keep titles punchy and specific to this person"""
 
 
@@ -250,15 +258,25 @@ async def generate_story_streaming(subject_name: str, description: str, preview_
 
     # 1. Outline
     outline_prompt = f"{base_prompt}\n\nPlan a {'PREVIEW (1 act only)' if preview_only else 'FULL (4-5 acts)'} manga."
-    outline, model_used = _try_primary_then_fallback(OUTLINE_SYSTEM, outline_prompt, max_tokens=600)
+    outline, model_used = _try_primary_then_fallback(OUTLINE_SYSTEM, outline_prompt, max_tokens=1000)
     yield {"outline": outline, "model_used": model_used, "new_pages": [], "done": False}
 
-    act_names = outline.get("acts", ["Act I — The Setup"])[:num_acts]
+    # Parse acts — support both old ["Act I — Name"] and new [{"name": ..., "plot": ...}] format
+    raw_acts = outline.get("acts", [{"name": "Act I — The Setup", "plot": "Introduction"}])[:num_acts]
+    acts = []
+    for a in raw_acts:
+        if isinstance(a, str):
+            acts.append({"name": a, "plot": ""})
+        else:
+            acts.append({"name": a.get("name", ""), "plot": a.get("plot", "")})
+
+    # Build full arc summary so each act knows the whole plan
+    full_arc = "\n".join(f"  {a['name']}: {a['plot']}" for a in acts)
     story_so_far = ""
 
     # 2. Per-act pages
     prev_image_prompts = []
-    for i, act_name in enumerate(act_names):
+    for i, act in enumerate(acts):
         avoid_clause = ""
         if prev_image_prompts:
             avoid_clause = "\n\nPrevious image prompts (DO NOT repeat these scenes):\n" + "\n".join(f"- {p}" for p in prev_image_prompts[-6:]) + "\n"
@@ -266,15 +284,16 @@ async def generate_story_streaming(subject_name: str, description: str, preview_
             f"{base_prompt}\n\n"
             f"Manga title: {outline.get('title', subject_name)}\n"
             f"Tagline: {outline.get('tagline', '')}\n"
-            + (f"Story so far:\n{story_so_far}\n\n" if story_so_far else "")
+            f"Full story arc:\n{full_arc}\n\n"
+            + (f"What happened so far:\n{story_so_far}\n\n" if story_so_far else "")
             + avoid_clause
-            + f"Now write pages for: {act_name}"
+            + f"Now write pages for: {act['name']}\nPlot for this act: {act['plot']}"
         )
         act_result, _ = _try_primary_then_fallback(ACT_SYSTEM, act_prompt, max_tokens=2000)
         pages = act_result.get("pages", [])
         titles = [p.get("title", "") for p in pages if p.get("type") == "text"]
         prev_image_prompts.extend(p.get("image_prompt", "") for p in pages if p.get("type") == "img")
-        story_so_far += f"{act_name}: {', '.join(titles)}\n"
+        story_so_far += f"{act['name']}: {', '.join(titles)}\n"
         yield {"outline": outline, "model_used": model_used, "new_pages": pages, "done": False}
 
     # 3. Ending
