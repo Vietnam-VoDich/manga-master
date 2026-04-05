@@ -7,27 +7,94 @@ from google import genai
 from google.genai import types
 from PIL import Image
 from core.config import GEMINI_API_KEY, IMAGE_MODEL
-import io
+import io, logging, re
+
+logger = logging.getLogger(__name__)
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 
+# Relax all safety filters to minimum
+SAFETY_SETTINGS = [
+    types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
+    types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_NONE"),
+    types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_NONE"),
+    types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE"),
+]
+
+IMAGE_CONFIG = types.ImageConfig(aspect_ratio="3:4")
+
+
+def _clean_prompt_for_retry(prompt: str) -> str:
+    """Remove potentially problematic words and simplify for retry."""
+    # Remove words that might trigger safety filters
+    remove_words = [
+        "sexy", "seductive", "flirty", "intimate", "sensual",
+        "kissing", "touching", "undress", "naked", "nude",
+        "drunk", "wasted", "hammered", "smashed",
+        "fight", "punch", "attack", "violence", "blood",
+    ]
+    cleaned = prompt
+    for word in remove_words:
+        cleaned = re.sub(rf'\b{word}\b', '', cleaned, flags=re.IGNORECASE)
+    # Add safe framing
+    cleaned = cleaned.strip() + ". Keep the image appropriate and artistic."
+    return cleaned
+
 
 async def generate_manga_image(prompt: str) -> bytes:
-    """Text-to-manga panel in 3:4 portrait ratio."""
+    """Text-to-manga panel in 3:4 portrait ratio. Retries with cleaned prompt on safety block."""
+    # Attempt 1: original prompt
+    try:
+        response = client.models.generate_content(
+            model=IMAGE_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_modalities=["IMAGE", "TEXT"],
+                image_config=IMAGE_CONFIG,
+                safety_settings=SAFETY_SETTINGS,
+            ),
+        )
+        for part in response.candidates[0].content.parts:
+            if part.inline_data:
+                return part.inline_data.data
+    except Exception as e:
+        logger.warning(f"Image gen attempt 1 failed: {e}")
+
+    # Attempt 2: cleaned prompt
+    cleaned = _clean_prompt_for_retry(prompt)
+    logger.info(f"Retrying with cleaned prompt: {cleaned[:80]}...")
+    try:
+        response = client.models.generate_content(
+            model=IMAGE_MODEL,
+            contents=cleaned,
+            config=types.GenerateContentConfig(
+                response_modalities=["IMAGE", "TEXT"],
+                image_config=IMAGE_CONFIG,
+                safety_settings=SAFETY_SETTINGS,
+            ),
+        )
+        for part in response.candidates[0].content.parts:
+            if part.inline_data:
+                return part.inline_data.data
+    except Exception as e:
+        logger.warning(f"Image gen attempt 2 failed: {e}")
+
+    # Attempt 3: generic fallback
+    fallback = "A dramatic manga panel, black and white ink style, high contrast, cinematic composition"
+    logger.info("Retrying with generic fallback prompt")
     response = client.models.generate_content(
         model=IMAGE_MODEL,
-        contents=prompt,
+        contents=fallback,
         config=types.GenerateContentConfig(
             response_modalities=["IMAGE", "TEXT"],
-            image_config=types.ImageConfig(
-                aspect_ratio="3:4",
-            ),
+            image_config=IMAGE_CONFIG,
+            safety_settings=SAFETY_SETTINGS,
         ),
     )
     for part in response.candidates[0].content.parts:
         if part.inline_data:
             return part.inline_data.data
-    raise ValueError("No image returned from Gemini")
+    raise ValueError("All image generation attempts failed")
 
 
 async def manga_ify_photo(photo_bytes: bytes, scene_prompt: str) -> bytes:
@@ -47,15 +114,14 @@ async def manga_ify_photo(photo_bytes: bytes, scene_prompt: str) -> bytes:
             contents=[edit_prompt, img],
             config=types.GenerateContentConfig(
                 response_modalities=["IMAGE", "TEXT"],
-                image_config=types.ImageConfig(
-                    aspect_ratio="3:4",
-                ),
+                image_config=IMAGE_CONFIG,
+                safety_settings=SAFETY_SETTINGS,
             ),
         )
         for part in response.candidates[0].content.parts:
             if part.inline_data:
                 return part.inline_data.data
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Photo manga-ify failed: {e}")
     # Fallback: generate without photo
     return await generate_manga_image(scene_prompt + ", black and white manga ink style, dramatic, high contrast")
