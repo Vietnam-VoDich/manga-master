@@ -49,6 +49,7 @@ export default function MangaReaderPage() {
   const [enhanceText, setEnhanceText] = useState("")
   const [isEnhancing, setIsEnhancing] = useState(false)
   const [isExpanding, setIsExpanding] = useState(false)
+  const [showOverview, setShowOverview] = useState(false)
 
   // Animate loading steps
   useEffect(() => {
@@ -630,9 +631,41 @@ export default function MangaReaderPage() {
       {/* Nav bar (desktop) */}
       <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-3 opacity-50 hover:opacity-100 transition-opacity z-30">
         <button onClick={() => go(-1)} disabled={cur === 0} className="w-8 h-8 rounded-full border border-white/15 bg-black/80 text-white/40 text-xs flex items-center justify-center disabled:opacity-20 hover:text-white/70 hover:border-white/30 transition-colors">◀</button>
-        <span className="text-[9px] text-white/30 tracking-widest">{cur + 1} / {manga.pages.length}</span>
+        <button onClick={() => setShowOverview(true)} className="text-[9px] text-white/30 tracking-widest hover:text-white/60 transition-colors">{cur + 1} / {manga.pages.length}</button>
         <button onClick={() => go(1)} disabled={cur === manga.pages.length - 1} className="w-8 h-8 rounded-full border border-white/15 bg-black/80 text-white/40 text-xs flex items-center justify-center disabled:opacity-20 hover:text-white/70 hover:border-white/30 transition-colors">▶</button>
       </div>
+
+      {/* Page overview */}
+      {showOverview && (
+        <div className="fixed inset-0 z-50 bg-black/95 overflow-y-auto" onClick={() => setShowOverview(false)}>
+          <div className="max-w-3xl mx-auto px-4 py-8">
+            <div className="flex items-center justify-between mb-6">
+              <p className="text-[9px] tracking-[4px] uppercase text-white/40">{manga.title} — {manga.pages.length} pages</p>
+              <button onClick={() => setShowOverview(false)} className="text-[9px] tracking-widest uppercase text-white/30 hover:text-white/60 transition-colors">Close ✕</button>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5">
+              {manga.pages.map((p, i) => (
+                <button
+                  key={i}
+                  onClick={(e) => { e.stopPropagation(); setCur(i); setShowOverview(false) }}
+                  className={`relative aspect-[3/4] overflow-hidden border transition-all ${i === cur ? "border-white/40" : "border-white/10 hover:border-white/25"}`}
+                >
+                  {p.type === "img" ? (
+                    <img src={p.image_url} className="w-full h-full object-cover" style={{ filter: "brightness(0.6)" }} alt="" />
+                  ) : (
+                    <div className="w-full h-full bg-[#0a0a0a] flex items-center justify-center p-2">
+                      <span className="text-[8px] text-white/30 text-center leading-tight truncate">
+                        {p.type === "text" ? (p.title || p.act || "Text") : p.type === "climax" ? "Climax" : p.type === "ending" ? "終" : p.type === "after" ? "End" : p.type === "upsell" ? "→" : ""}
+                      </span>
+                    </div>
+                  )}
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-[7px] text-white/40 text-center py-0.5">{i + 1}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -152,10 +152,18 @@ export default function CreatePage() {
             <h2 className="font-serif text-2xl sm:text-3xl text-white/80 mb-2 text-center">Tell their story</h2>
             <p className="text-sm text-white/30 mb-8 text-center">The more specific, the funnier the manga</p>
 
-            {photoPreview && (
-              <div className="w-14 h-18 mx-auto mb-6 overflow-hidden border border-white/10">
-                <img src={photoPreview} className="w-full h-full object-cover grayscale" alt="preview" />
+            {photoPreview ? (
+              <div className="flex items-center justify-center gap-3 mb-6">
+                <div className="w-14 h-18 overflow-hidden border border-white/10">
+                  <img src={photoPreview} className="w-full h-full object-cover grayscale" alt="preview" />
+                </div>
+                <button onClick={() => { setPhoto(null); setPhotoPreview(null) }} className="text-[9px] tracking-widest uppercase text-white/20 hover:text-white/40 transition-colors">Remove</button>
               </div>
+            ) : (
+              <label className="flex items-center justify-center gap-2 mb-6 cursor-pointer group">
+                <span className="text-[9px] tracking-widest uppercase text-white/20 group-hover:text-white/40 transition-colors border border-white/10 group-hover:border-white/20 px-3 py-2">+ Add photo</span>
+                <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handlePhoto(f) }} />
+              </label>
             )}
 
             <div className="space-y-4">
