@@ -383,7 +383,7 @@ export default function MangaReaderPage() {
         {page.type === "img" && (
           <>
             <div className="flex-1 overflow-hidden relative bg-[#080808] min-h-0">
-              <img src={page.image_url} className="w-full h-full object-cover" style={{ filter: "contrast(1.05)" }} alt="" />
+              <img src={page.image_url} className="w-full h-full object-contain" style={{ filter: "contrast(1.05)" }} alt="" />
               {page.bubble && (
                 <div
                   className="absolute top-3 left-3 bg-[#e8e6df] text-[#111] rounded-xl px-3 py-2 text-xs font-semibold max-w-[180px] leading-snug shadow-lg"
