@@ -95,7 +95,7 @@ export default function MangaReaderPage() {
       if (done || (hasPages && (data.status === "streaming" || data.status === "generating"))) {
         const pages = [...(data.pages || [])]
         if (done && data.is_preview) pages.push({ type: "upsell" })
-        if (done && !data.is_preview && data.status === "complete") pages.push({ type: "after" })
+        if (done && !data.is_preview && (data.status === "complete" || data.status === "error")) pages.push({ type: "after" })
         setManga(prev => ({ ...data, pages, audio_theme_url: prev?.audio_theme_url || data.audio_theme_url }))
         if (data.audio_theme_url) {
           setAudio(prev => {
@@ -432,9 +432,28 @@ export default function MangaReaderPage() {
         {page.type === "after" && (
           <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 text-center gap-7 overflow-y-auto">
             <div>
-              <div className="font-serif text-5xl text-[#181818] tracking-widest mb-2">終</div>
-              <p className="text-[9px] tracking-[5px] uppercase text-[#252525]">The End</p>
+              {manga.status === "error" ? (
+                <>
+                  <div className="font-serif text-5xl text-[#181818] tracking-widest mb-2">!</div>
+                  <p className="text-[9px] tracking-[5px] uppercase text-red-400/50">Generation incomplete</p>
+                </>
+              ) : (
+                <>
+                  <div className="font-serif text-5xl text-[#181818] tracking-widest mb-2">終</div>
+                  <p className="text-[9px] tracking-[5px] uppercase text-[#252525]">The End</p>
+                </>
+              )}
             </div>
+            {/* Retry button for error mangas */}
+            {manga.status === "error" && isLoaded && user && dbUserId && manga.user_id === dbUserId && isSubscribed && (
+              <button
+                onClick={handleExpand}
+                disabled={isExpanding}
+                className="text-[10px] tracking-[3px] uppercase text-white/40 hover:text-white/70 border border-white/15 hover:border-white/30 px-6 py-3 transition-all w-full max-w-[240px] disabled:opacity-50"
+              >
+                {isExpanding ? "Retrying..." : "Retry generation →"}
+              </button>
+            )}
             <div className="flex flex-col gap-2 w-full max-w-[240px]">
               {isLoaded && user && dbUserId && manga.user_id === dbUserId && (
                 manga.is_public ? (

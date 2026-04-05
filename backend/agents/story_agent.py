@@ -230,12 +230,20 @@ async def generate_story(subject_name: str, description: str, preview_only: bool
     }
 
 
-async def generate_story_streaming(subject_name: str, description: str, preview_only: bool = True):
+TONE_INSTRUCTIONS = {
+    "emotional": "Write with deep emotional resonance — heartfelt, moving, bittersweet. Find the humanity in their story. Make the reader feel something real.",
+    "humorous": "Write with warmth and wit — light comedy, charming observations, gentle jokes about their quirks. Fun but respectful.",
+    "roast": "Write like a comedy roast — savage, brutally funny, exaggerated. Roast their habits, quirks, and life choices mercilessly. Think stand-up comedy, not mean-spirited. The funnier the better.",
+}
+
+
+async def generate_story_streaming(subject_name: str, description: str, preview_only: bool = True, tone: str = "humorous"):
     """
     Async generator — yields partial results after each act is written.
     Each yield: {"outline": {...}, "new_pages": [...], "done": bool}
     """
-    base_prompt = f"Person: {subject_name}\nAbout them: {description}"
+    tone_instruction = TONE_INSTRUCTIONS.get(tone, TONE_INSTRUCTIONS["humorous"])
+    base_prompt = f"Person: {subject_name}\nAbout them: {description}\n\nTone: {tone_instruction}"
     num_acts = 1 if preview_only else 5
 
     # 1. Outline

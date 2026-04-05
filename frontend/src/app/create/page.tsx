@@ -15,6 +15,7 @@ export default function CreatePage() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
+  const [tone, setTone] = useState<"emotional" | "humorous" | "roast">("humorous")
   const [recording, setRecording] = useState(false)
   const [dbUserId, setDbUserId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -95,6 +96,7 @@ export default function CreatePage() {
       const fd = new FormData()
       fd.append("subject_name", name)
       fd.append("description", description)
+      fd.append("tone", tone)
       if (userId) fd.append("user_id", userId)
       if (photo) fd.append("photo", photo)
       const data = await api.createManga(fd)
@@ -177,6 +179,32 @@ export default function CreatePage() {
                 />
                 <div className="flex justify-end mt-1">
                   <span className="text-[9px] text-white/15">{description.length} chars</span>
+                </div>
+              </div>
+
+              {/* Tone selector */}
+              <div>
+                <label className="text-[9px] tracking-[4px] uppercase text-white/30 block mb-2">Story tone</label>
+                <div className="grid grid-cols-3 gap-1">
+                  {([
+                    { value: "emotional" as const, label: "Emotional", desc: "Heartfelt & moving" },
+                    { value: "humorous" as const, label: "Humorous", desc: "Light & funny" },
+                    { value: "roast" as const, label: "Roast", desc: "Savage & hilarious" },
+                  ]).map(t => (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => setTone(t.value)}
+                      className={`border px-2 py-2.5 transition-all text-center ${
+                        tone === t.value
+                          ? "border-white/40 bg-white/5 text-white/80"
+                          : "border-white/10 text-white/25 hover:border-white/20 hover:text-white/40"
+                      }`}
+                    >
+                      <div className="text-[10px] tracking-widest uppercase font-semibold">{t.label}</div>
+                      <div className="text-[8px] tracking-wider mt-0.5 opacity-60">{t.desc}</div>
+                    </button>
+                  ))}
                 </div>
               </div>
 

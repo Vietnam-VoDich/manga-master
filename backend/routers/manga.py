@@ -85,7 +85,7 @@ def _pages_summary(pages: list) -> str:
 
 # ── background tasks ────────────────────────────────────────────────────────────
 
-async def _build_manga(manga_id: str, photo_bytes: bytes | None, db: Session):
+async def _build_manga(manga_id: str, photo_bytes: bytes | None, db: Session, tone: str = "humorous"):
     """Full generation pipeline — streams pages to DB as each act completes."""
     manga = db.query(Manga).filter(Manga.id == manga_id).first()
     if not manga:
@@ -101,7 +101,7 @@ async def _build_manga(manga_id: str, photo_bytes: bytes | None, db: Session):
         music_task = None
         outline = {}
 
-        async for chunk in generate_story_streaming(manga.subject_name, manga.subject_description, preview_only):
+        async for chunk in generate_story_streaming(manga.subject_name, manga.subject_description, preview_only, tone):
             if not outline and chunk.get("outline"):
                 # First chunk — outline arrived, set title/tagline and start music
                 outline = chunk["outline"]
@@ -316,6 +316,7 @@ async def create_manga(
     subject_name: str = Form(...),
     description: str = Form(...),
     user_id: Optional[str] = Form(None),
+    tone: str = Form("humorous"),
     photo: UploadFile | None = File(None),
     db: Session = Depends(get_db),
 ):
@@ -335,7 +336,7 @@ async def create_manga(
         except Exception:
             pass
 
-    background_tasks.add_task(_build_manga, manga.id, photo_bytes, db)
+    background_tasks.add_task(_build_manga, manga.id, photo_bytes, db, tone)
     return {"manga_id": manga.id, "status": "pending"}
 
 
