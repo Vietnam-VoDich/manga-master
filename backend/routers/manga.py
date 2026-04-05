@@ -16,8 +16,8 @@ router = APIRouter()
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 
-def _compress_image(raw_bytes: bytes, quality: int = 80) -> bytes:
-    """Compress image to JPEG for faster loading."""
+def _compress_image(raw_bytes: bytes, quality: int = 82) -> bytes:
+    """Compress to JPEG for faster loading."""
     from PIL import Image
     import io
     try:
@@ -28,7 +28,7 @@ def _compress_image(raw_bytes: bytes, quality: int = 80) -> bytes:
         img.save(buf, format="JPEG", quality=quality, optimize=True)
         return buf.getvalue()
     except Exception:
-        return raw_bytes  # fallback to original
+        return raw_bytes
 
 
 async def _render_one_image(page: dict, photo_bytes: bytes | None) -> dict | None:

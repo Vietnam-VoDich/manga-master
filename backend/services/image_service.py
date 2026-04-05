@@ -13,11 +13,16 @@ client = genai.Client(api_key=GEMINI_API_KEY)
 
 
 async def generate_manga_image(prompt: str) -> bytes:
-    """Text-to-manga panel."""
+    """Text-to-manga panel in 3:4 portrait ratio."""
     response = client.models.generate_content(
         model=IMAGE_MODEL,
         contents=prompt,
-        config=types.GenerateContentConfig(response_modalities=["IMAGE", "TEXT"]),
+        config=types.GenerateContentConfig(
+            response_modalities=["IMAGE", "TEXT"],
+            image_config=types.ImageConfig(
+                aspect_ratio="3:4",
+            ),
+        ),
     )
     for part in response.candidates[0].content.parts:
         if part.inline_data:
@@ -40,7 +45,12 @@ async def manga_ify_photo(photo_bytes: bytes, scene_prompt: str) -> bytes:
         response = client.models.generate_content(
             model=IMAGE_MODEL,
             contents=[edit_prompt, img],
-            config=types.GenerateContentConfig(response_modalities=["IMAGE", "TEXT"]),
+            config=types.GenerateContentConfig(
+                response_modalities=["IMAGE", "TEXT"],
+                image_config=types.ImageConfig(
+                    aspect_ratio="3:4",
+                ),
+            ),
         )
         for part in response.candidates[0].content.parts:
             if part.inline_data:

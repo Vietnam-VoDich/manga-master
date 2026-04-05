@@ -95,7 +95,7 @@ Output ONLY valid JSON:
     },
     {
       "type": "img",
-      "image_prompt": "detailed scene — end with: portrait orientation (taller than wide, 3:4 ratio), black and white manga ink style, dramatic, high contrast",
+      "image_prompt": "detailed scene — end with: black and white manga ink style, dramatic, high contrast",
       "caption": "caption text, use <em>word</em> for emphasis",
       "bubble": "short speech bubble text (plain text, no HTML tags) or null"
     }
@@ -146,7 +146,7 @@ Output ONLY valid JSON:
     },
     {
       "type": "img",
-      "image_prompt": "detailed scene — end with: portrait orientation (taller than wide, 3:4 ratio), black and white manga ink style, dramatic, high contrast",
+      "image_prompt": "detailed scene — end with: black and white manga ink style, dramatic, high contrast",
       "caption": "caption",
       "bubble": "speech bubble or null"
     }
