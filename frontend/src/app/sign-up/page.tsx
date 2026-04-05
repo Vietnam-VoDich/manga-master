@@ -22,8 +22,8 @@ export default function SignUpPage() {
           },
           elements: {
             card: "shadow-none border border-white/10",
-            headerTitle: { className: "font-serif tracking-widest", style: { color: "white" } },
-            headerSubtitle: { style: { color: "rgba(255,255,255,0.4)" } },
+            headerTitle: "font-serif tracking-widest",
+            headerSubtitle: "",
             socialButtonsBlockButton: "!border-white/10 !text-white/70",
             socialButtonsBlockButtonText: "!text-white/70",
             formButtonPrimary: "!bg-white !text-black font-semibold tracking-widest uppercase text-xs",

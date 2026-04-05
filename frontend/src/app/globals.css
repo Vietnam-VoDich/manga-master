@@ -13,3 +13,39 @@ body {
 input, textarea, select {
   font-size: 16px;
 }
+
+/* Clerk auth form overrides */
+.cl-headerTitle,
+.cl-headerTitle * {
+  color: #ffffff !important;
+}
+.cl-headerSubtitle,
+.cl-headerSubtitle * {
+  color: rgba(255,255,255,0.5) !important;
+}
+.cl-formFieldLabel {
+  color: rgba(255,255,255,0.5) !important;
+}
+.cl-formFieldInput {
+  background-color: #111111 !important;
+  color: #ffffff !important;
+  border-color: rgba(255,255,255,0.1) !important;
+}
+.cl-formFieldInput::placeholder {
+  color: rgba(255,255,255,0.2) !important;
+}
+.cl-footerActionText {
+  color: rgba(255,255,255,0.35) !important;
+}
+.cl-footerActionLink {
+  color: #ffffff !important;
+}
+.cl-dividerText {
+  color: rgba(255,255,255,0.2) !important;
+}
+.cl-socialButtonsBlockButtonText {
+  color: rgba(255,255,255,0.7) !important;
+}
+.cl-identityPreviewText {
+  color: rgba(255,255,255,0.6) !important;
+}
