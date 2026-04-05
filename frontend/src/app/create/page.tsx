@@ -180,19 +180,6 @@ export default function CreatePage() {
                 </div>
               </div>
 
-              {/* Voice recording */}
-              <button
-                onClick={recording ? stopRecording : startRecording}
-                className={`flex items-center gap-2 text-[10px] tracking-widest uppercase border px-4 py-3 transition-all w-full justify-center ${
-                  recording
-                    ? "border-red-500/50 text-red-400 bg-red-500/5"
-                    : "border-white/10 text-white/30 hover:border-white/30 active:border-white/40"
-                }`}
-              >
-                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${recording ? "bg-red-400 animate-pulse" : "bg-white/20"}`} />
-                {recording ? "Tap to stop recording" : "Record a voice note instead"}
-              </button>
-
               {error && <p className="text-[10px] text-red-400/70 text-center tracking-widest">{error}</p>}
               <button
                 onClick={handleSubmit}
