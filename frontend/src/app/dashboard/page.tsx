@@ -177,6 +177,23 @@ function DashboardInner() {
                     </Link>
                   </div>
                 )}
+                {/* Retry — error mangas */}
+                {m.status === "error" && (
+                  <div className="px-3 sm:px-4 pb-3">
+                    <button
+                      onClick={async () => {
+                        if (!dbUser) return
+                        try {
+                          await api.expandManga(m.id, dbUser.id)
+                          window.location.href = `/manga/${m.id}`
+                        } catch {}
+                      }}
+                      className="text-[9px] tracking-widest uppercase text-red-400/60 hover:text-white/60 transition-colors border border-red-500/20 hover:border-white/20 px-2 py-1"
+                    >
+                      Retry →
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
