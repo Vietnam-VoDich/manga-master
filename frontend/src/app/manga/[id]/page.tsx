@@ -416,12 +416,12 @@ export default function MangaReaderPage() {
 
         {page.type === "climax" && (
           <div className="flex-1 flex flex-col items-center justify-center px-7 py-8 text-center" style={{ background: "radial-gradient(ellipse at center, #0e0800 0%, #000 100%)" }}>
-            <p className="text-[9px] tracking-[5px] uppercase text-[#2a1a00] mb-5">The Moment</p>
+            <p className="text-[9px] tracking-[5px] uppercase text-[#8a6a30] mb-5">The Moment</p>
             <div
               className="font-serif text-[17px] leading-[2.2] text-[#c8a96e] font-bold max-w-sm"
               dangerouslySetInnerHTML={{ __html: page.quote }}
             />
-            {page.attr && <p className="text-[9px] text-[#333] mt-5 tracking-widest">{page.attr}</p>}
+            {page.attr && <p className="text-[10px] text-[#887755] mt-5 tracking-widest leading-relaxed max-w-sm">{page.attr}</p>}
           </div>
         )}
 
