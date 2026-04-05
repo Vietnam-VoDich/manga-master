@@ -77,8 +77,8 @@ function DashboardInner() {
 
         <div className="flex items-end justify-between mb-8">
           <div>
-            <p className="text-[9px] tracking-[5px] uppercase text-white/20 mb-1">Your stories</p>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-white/80">{user?.firstName ?? "Hello"}</h1>
+            <p className="text-[9px] tracking-[5px] uppercase text-white/50 mb-1">Your stories</p>
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-white">{user?.firstName ?? "Hello"}</h1>
           </div>
           <Link href="/create" className="bg-white text-black text-[9px] sm:text-[10px] tracking-[3px] sm:tracking-[4px] uppercase px-4 sm:px-6 py-3 font-semibold hover:bg-white/90 active:bg-white/80 transition-all">
             + New
@@ -122,7 +122,7 @@ function DashboardInner() {
                   </div>
                   {/* Card body */}
                   <div className="p-3 sm:p-4">
-                    <div className="text-[11px] font-semibold text-white/50 group-hover:text-white/70 transition-colors mb-1 truncate">
+                    <div className="text-[11px] font-semibold text-white/70 group-hover:text-white/90 transition-colors mb-1 truncate">
                       {m.title || m.subject_name}
                     </div>
                     <div className="flex items-center gap-1.5">

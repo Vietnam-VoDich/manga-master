@@ -294,11 +294,11 @@ export default function MangaReaderPage() {
         {/* Share controls — only for owner */}
         {isLoaded && user && dbUserId && manga.user_id === dbUserId && (
           manga.is_public ? (
-            <button onClick={handleUnshare} className="text-[9px] tracking-widest uppercase text-green-500/50 hover:text-white/40 transition-colors">
+            <button onClick={handleUnshare} className="text-[9px] tracking-widest uppercase text-green-400/80 hover:text-white/60 transition-colors">
               Shared ✓
             </button>
           ) : (
-            <button onClick={handleShare} className="text-[9px] tracking-widest uppercase text-white/20 hover:text-white/50 transition-colors">
+            <button onClick={handleShare} className="text-[9px] tracking-widest uppercase text-white/60 hover:text-white/90 transition-colors">
               Share
             </button>
           )

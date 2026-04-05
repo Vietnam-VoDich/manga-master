@@ -49,3 +49,16 @@ input, textarea, select {
 .cl-identityPreviewText {
   color: rgba(255,255,255,0.6) !important;
 }
+.cl-formFieldSuccessText,
+.cl-formFieldHintText,
+.cl-formFieldInfoText,
+.cl-formFieldWarningText,
+.cl-passwordStrength,
+.cl-passwordStrength * {
+  color: rgba(255,255,255,0.5) !important;
+}
+.cl-otpCodeFieldInput {
+  background-color: #111111 !important;
+  color: #ffffff !important;
+  border-color: rgba(255,255,255,0.1) !important;
+}
