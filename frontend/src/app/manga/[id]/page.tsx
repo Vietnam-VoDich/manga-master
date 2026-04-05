@@ -353,8 +353,13 @@ export default function MangaReaderPage() {
         {/* Share controls — only for owner */}
         {isLoaded && user && dbUserId && manga.user_id === dbUserId && (
           manga.is_public ? (
-            <button onClick={handleUnshare} className="text-[9px] tracking-widest uppercase text-green-400/80 hover:text-white/60 transition-colors">
-              Shared ✓
+            <button onClick={() => {
+              const url = `${window.location.origin}/manga/${manga.id}`
+              navigator.clipboard.writeText(url)
+              setShareMsg("Link copied!")
+              setTimeout(() => setShareMsg(""), 2000)
+            }} className="text-[9px] tracking-widest uppercase text-green-400/80 hover:text-white/60 transition-colors">
+              {shareMsg || "Shared ✓"}
             </button>
           ) : (
             <button onClick={handleShare} className="text-[9px] tracking-widest uppercase text-white/60 hover:text-white/90 transition-colors">
@@ -376,14 +381,14 @@ export default function MangaReaderPage() {
       <div className="absolute top-0 left-0 h-full w-[28%] z-20 cursor-pointer" onClick={() => go(-1)} />
       <div className="absolute top-0 right-0 h-full w-[28%] z-20 cursor-pointer" onClick={() => go(1)} />
 
-      {/* Page frame */}
+      {/* Page frame — wider on desktop, phone-sized on mobile */}
       <div
-        className={`w-[92vw] max-w-[520px] h-[90dvh] max-h-[860px] bg-[#0a0a0a] border border-[#151515] flex flex-col overflow-hidden transition-opacity duration-150 ${turning ? "opacity-0" : "opacity-100"}`}
+        className={`w-[96vw] max-w-[520px] sm:max-w-[600px] md:max-w-[700px] lg:max-w-[760px] h-[92dvh] max-h-[920px] bg-[#0a0a0a] border border-[#151515] flex flex-col overflow-hidden transition-opacity duration-150 ${turning ? "opacity-0" : "opacity-100"}`}
       >
         {page.type === "img" && (
           <>
             <div className="flex-1 overflow-hidden relative bg-[#080808] min-h-0">
-              <img src={page.image_url} className="w-full h-full object-contain" style={{ filter: "contrast(1.05)" }} alt="" />
+              <img src={page.image_url} className="w-full h-full object-cover object-top" style={{ filter: "contrast(1.05)" }} alt="" />
               {page.bubble && (
                 <div
                   className="absolute top-3 left-3 bg-[#e8e6df] text-[#111] rounded-xl px-3 py-2 text-xs font-semibold max-w-[180px] leading-snug shadow-lg"
