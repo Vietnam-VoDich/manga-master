@@ -213,7 +213,7 @@ export default function CreatePage() {
             <div className="hidden lg:flex flex-col gap-8 absolute left-0 xl:left-8 top-1/2 -translate-y-1/2 text-right">
               {[
                 { jp: "絵巻物", en: "12th century — the first picture scrolls" },
-                { jp: "北斎", en: "Hokusai coined "manga" in 1814" },
+                { jp: "北斎", en: "Hokusai coined 'manga' in 1814" },
                 { jp: "手塚治虫", en: "Tezuka invented modern manga in 1952" },
                 { jp: "少年", en: "Shōnen Jump launched in 1968" },
               ].map((f, i) => (
@@ -240,7 +240,7 @@ export default function CreatePage() {
             {/* Right facts */}
             <div className="hidden lg:flex flex-col gap-8 absolute right-0 xl:right-8 top-1/2 -translate-y-1/2 text-left">
               {[
-                { jp: "漫画", en: "means "whimsical sketches"" },
+                { jp: "漫画", en: "means 'whimsical sketches'" },
                 { jp: "ONE PIECE", en: "520 million copies — best-selling manga" },
                 { jp: "DRAGON BALL", en: "260 million copies worldwide" },
                 { jp: "四割", en: "40% of books sold in Japan are manga" },
