@@ -109,7 +109,7 @@ Rules:
 - Image prompts = real scenes with real people doing real things, not abstract.
 - narr: MAX 3 short punchy sentences. Rhythmic, not paragraphs.
 - bubble: plain text only, NO HTML tags like <em>. Keep it short and punchy.
-- Find both the comedy AND the heart."""
+- Match the tone specified in the user prompt — don't default to comedy or roasting unless asked."""
 
 
 ENDING_SYSTEM = """You are a manga ending writer. Write the climax and ending for a manga.

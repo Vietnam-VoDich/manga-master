@@ -100,14 +100,18 @@ async def generate_manga_image(prompt: str) -> bytes:
 async def manga_ify_photo(photo_bytes: bytes, scene_prompt: str) -> bytes:
     """
     Turn a real photo into a manga panel.
-    The generated character will resemble the person in the photo.
+    The generated character MUST resemble the person in the photo.
     """
     img = Image.open(io.BytesIO(photo_bytes))
     edit_prompt = (
-        f"Convert this person into a manga character for a scene where: {scene_prompt}. "
-        "Keep the person's key facial features — face shape, hair style, any distinctive traits. "
+        "IMPORTANT: The main character in this image MUST closely resemble the person in the reference photo. "
+        "Preserve their exact face shape, nose, eyes, jawline, hair style, hair color, skin tone, and any distinctive features (beard, glasses, etc). "
+        "The character should be immediately recognizable as this person drawn in manga style.\n\n"
+        f"Scene: {scene_prompt}\n"
         "Style: high-contrast black and white manga ink art, dramatic shadows, cinematic."
     )
+
+    # Attempt 1: with photo reference
     try:
         response = client.models.generate_content(
             model=IMAGE_MODEL,
@@ -122,6 +126,28 @@ async def manga_ify_photo(photo_bytes: bytes, scene_prompt: str) -> bytes:
             if part.inline_data:
                 return part.inline_data.data
     except Exception as e:
-        logger.warning(f"Photo manga-ify failed: {e}")
+        logger.warning(f"Photo manga-ify attempt 1 failed: {e}")
+
+    # Attempt 2: retry with simpler prompt but still with photo
+    try:
+        simple_prompt = (
+            "Draw this person as a manga character in this scene: " + scene_prompt + ". "
+            "Keep their face the same. Black and white manga ink style."
+        )
+        response = client.models.generate_content(
+            model=IMAGE_MODEL,
+            contents=[simple_prompt, img],
+            config=types.GenerateContentConfig(
+                response_modalities=["IMAGE", "TEXT"],
+                image_config=IMAGE_CONFIG,
+                safety_settings=SAFETY_SETTINGS,
+            ),
+        )
+        for part in response.candidates[0].content.parts:
+            if part.inline_data:
+                return part.inline_data.data
+    except Exception as e:
+        logger.warning(f"Photo manga-ify attempt 2 failed: {e}")
+
     # Fallback: generate without photo
     return await generate_manga_image(scene_prompt + ", black and white manga ink style, dramatic, high contrast")
