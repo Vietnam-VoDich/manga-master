@@ -291,6 +291,13 @@ export default function MangaReaderPage() {
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
+      {/* Top-left: back to dashboard */}
+      <div className="fixed top-3 left-3 z-50">
+        <Link href={isLoaded && user ? "/dashboard" : "/"} className="text-[9px] tracking-widest uppercase text-white/25 hover:text-white/60 transition-colors">
+          ← {isLoaded && user ? "Dashboard" : "Home"}
+        </Link>
+      </div>
+
       {/* Top bar */}
       <div className="fixed top-3 right-3 z-50 flex items-center gap-3">
         {shareMsg && <span className="text-[9px] tracking-widest text-white/40">{shareMsg}</span>}
