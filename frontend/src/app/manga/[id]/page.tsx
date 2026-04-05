@@ -85,13 +85,17 @@ export default function MangaReaderPage() {
           const pages = [...(data.pages || [])]
           if (done && data.is_preview) pages.push({ type: "upsell" })
           setManga(prev => ({ ...data, pages, audio_theme_url: prev?.audio_theme_url || data.audio_theme_url }))
-          if (done) {
-            setPolling(false)
-            if (data.audio_theme_url) {
+          // Set up audio player as soon as music URL is available, even mid-stream
+          if (data.audio_theme_url) {
+            setAudio(prev => {
+              if (prev) return prev // already set up
               const a = new Audio(data.audio_theme_url)
               a.loop = true; a.volume = 0.35
-              setAudio(a)
-            }
+              return a
+            })
+          }
+          if (done) {
+            setPolling(false)
           }
         }
       } catch {}

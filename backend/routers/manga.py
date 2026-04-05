@@ -112,8 +112,19 @@ async def _build_manga(manga_id: str, photo_bytes: bytes | None, db: Session):
                 manga.pages      = []
                 manga.status     = "streaming"
                 db.commit()
+                async def _save_music(prompt: str, mid: str):
+                    try:
+                        music_bytes = await generate_theme_music(prompt)
+                        music_url = await upload(music_bytes, "mp3", "themes")
+                        # Re-fetch manga in this task's context and save immediately
+                        m = db.query(Manga).filter(Manga.id == mid).first()
+                        if m:
+                            m.audio_theme_url = music_url
+                            db.commit()
+                    except Exception:
+                        pass
                 music_task = asyncio.create_task(
-                    generate_theme_music(outline.get("music_prompt", "cinematic dramatic orchestral slow"))
+                    _save_music(outline.get("music_prompt", "cinematic dramatic orchestral slow"), manga_id)
                 )
 
             # Render new pages from this act
@@ -152,13 +163,9 @@ async def _build_manga(manga_id: str, photo_bytes: bytes | None, db: Session):
                 flag_modified(manga, "pages")
                 db.commit()
 
-        # Collect music result
+        # Wait for music task to finish (it saves itself to DB already)
         if music_task:
-            try:
-                music_bytes = await music_task
-                manga.audio_theme_url = await upload(music_bytes, "mp3", "themes")
-            except Exception:
-                manga.audio_theme_url = None
+            await asyncio.shield(music_task)
 
         manga.is_preview = preview_only
         manga.status = "preview" if preview_only else "complete"
