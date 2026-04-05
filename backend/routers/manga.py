@@ -16,40 +16,60 @@ router = APIRouter()
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 
+async def _render_one_image(page: dict, photo_bytes: bytes | None) -> dict | None:
+    """Render a single image page — generate image + narration."""
+    try:
+        if photo_bytes:
+            img_bytes = await manga_ify_photo(photo_bytes, page["image_prompt"])
+        else:
+            img_bytes = await generate_manga_image(page["image_prompt"])
+        img_url = await upload(img_bytes, "png", "pages")
+    except Exception:
+        return None
+
+    narr_url = None
+    caption = page.get("caption", "")
+    if caption:
+        try:
+            narr_bytes = await generate_narration(caption)
+            narr_url = await upload(narr_bytes, "mp3", "narration")
+        except Exception:
+            pass
+
+    return {
+        "type": "img",
+        "image_url": img_url,
+        "caption": caption,
+        "bubble": page.get("bubble"),
+        "narration_url": narr_url,
+    }
+
+
 async def _render_pages(raw_pages: list, photo_bytes: bytes | None) -> list:
-    """Render story-script pages into fully-resolved page dicts (with image URLs, narration URLs)."""
+    """Render story-script pages into fully-resolved page dicts. Images rendered in parallel."""
+    # Separate img pages for parallel rendering, keep order
+    img_indices = []
+    img_tasks = []
+    for i, page in enumerate(raw_pages):
+        if page["type"] == "img":
+            img_indices.append(i)
+            img_tasks.append(_render_one_image(page, photo_bytes))
+
+    # Run all image generations in parallel
+    img_results = await asyncio.gather(*img_tasks) if img_tasks else []
+    img_map = {}
+    for idx, result in zip(img_indices, img_results):
+        if result:
+            img_map[idx] = result
+
+    # Build final page list preserving order
     pages = []
-    for page in raw_pages:
+    for i, page in enumerate(raw_pages):
         if page["type"] == "text":
             pages.append(page)
-
         elif page["type"] == "img":
-            try:
-                if photo_bytes:
-                    img_bytes = await manga_ify_photo(photo_bytes, page["image_prompt"])
-                else:
-                    img_bytes = await generate_manga_image(page["image_prompt"])
-                img_url = await upload(img_bytes, "png", "pages")
-            except Exception:
-                continue  # skip failed images
-
-            narr_url = None
-            caption = page.get("caption", "")
-            if caption:
-                try:
-                    narr_bytes = await generate_narration(caption)
-                    narr_url = await upload(narr_bytes, "mp3", "narration")
-                except Exception:
-                    pass
-
-            pages.append({
-                "type": "img",
-                "image_url": img_url,
-                "caption": caption,
-                "bubble": page.get("bubble"),
-                "narration_url": narr_url,
-            })
-
+            if i in img_map:
+                pages.append(img_map[i])
         elif page["type"] in ("climax", "ending"):
             pages.append(page)
 

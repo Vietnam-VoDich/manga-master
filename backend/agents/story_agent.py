@@ -257,17 +257,23 @@ async def generate_story_streaming(subject_name: str, description: str, preview_
     story_so_far = ""
 
     # 2. Per-act pages
+    prev_image_prompts = []
     for i, act_name in enumerate(act_names):
+        avoid_clause = ""
+        if prev_image_prompts:
+            avoid_clause = "\n\nPrevious image prompts (DO NOT repeat these scenes):\n" + "\n".join(f"- {p}" for p in prev_image_prompts[-6:]) + "\n"
         act_prompt = (
             f"{base_prompt}\n\n"
             f"Manga title: {outline.get('title', subject_name)}\n"
             f"Tagline: {outline.get('tagline', '')}\n"
             + (f"Story so far:\n{story_so_far}\n\n" if story_so_far else "")
+            + avoid_clause
             + f"Now write pages for: {act_name}"
         )
         act_result, _ = _try_primary_then_fallback(ACT_SYSTEM, act_prompt, max_tokens=2000)
         pages = act_result.get("pages", [])
         titles = [p.get("title", "") for p in pages if p.get("type") == "text"]
+        prev_image_prompts.extend(p.get("image_prompt", "") for p in pages if p.get("type") == "img")
         story_so_far += f"{act_name}: {', '.join(titles)}\n"
         yield {"outline": outline, "model_used": model_used, "new_pages": pages, "done": False}
 
@@ -301,18 +307,24 @@ async def generate_continuation(subject_name: str, description: str, act_one_pag
     act_names = ["Act II — The Struggle", "Act III — The Turn", "Act IV — The Cost", "Act V — The Resolution"]
     all_pages = []
     story_so_far = f"Act I summary:\n{act_one_summary}\n"
+    prev_image_prompts = [p.get("caption", "")[:60] for p in act_one_pages if p.get("type") == "img"]
 
     for act_name in act_names:
+        avoid_clause = ""
+        if prev_image_prompts:
+            avoid_clause = "\n\nPrevious image prompts (DO NOT repeat these scenes):\n" + "\n".join(f"- {p}" for p in prev_image_prompts[-6:]) + "\n"
         act_prompt = (
             f"Person: {subject_name}\nAbout them: {description}\n\n"
             f"Manga: {title}\nTagline: {tagline}\n\n"
             f"Story so far:\n{story_so_far}\n\n"
-            f"Write pages for: {act_name}"
+            + avoid_clause
+            + f"Write pages for: {act_name}"
         )
         act_result, _ = _try_primary_then_fallback(ACT_SYSTEM, act_prompt, max_tokens=2000)
         pages = act_result.get("pages", [])
         all_pages.extend(pages)
         titles = [p.get("title", "") for p in pages if p.get("type") == "text"]
+        prev_image_prompts.extend(p.get("image_prompt", "") for p in pages if p.get("type") == "img")
         story_so_far += f"{act_name}: {', '.join(titles)}\n"
 
     ending_prompt = (
