@@ -315,6 +315,18 @@ async def _run_enhance(manga_id: str, user_id: str, instruction: str, db: Sessio
                     updated.append(p)
             manga.pages = updated
 
+        elif action == "rewrite_act":
+            # Replace specific pages by index with new content
+            indices = decision.get("rewrite_page_indices", [])
+            new_raw = decision.get("pages", [])
+            new_pages = await _render_pages(new_raw, photo_bytes)
+            if indices and new_pages:
+                # Build updated page list: keep pages not in indices, insert new ones at first index
+                insert_at = min(indices)
+                kept_before = [p for i, p in enumerate(current_pages) if i < insert_at]
+                kept_after = [p for i, p in enumerate(current_pages) if i > max(indices)]
+                manga.pages = kept_before + new_pages + kept_after
+
         elif action == "regenerate":
             # Full regeneration — treat as a new expand
             manga.pages = []

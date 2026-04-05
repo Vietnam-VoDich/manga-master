@@ -128,27 +128,29 @@ Decide what action to take based on their instruction and the current story stat
 
 Available actions:
 - add_pages: Add 2-6 new pages to the story (text + image pages)
+- rewrite_act: Rewrite specific pages of an act (user says "act 3 should be different", "change the middle part", etc.)
 - replace_ending: Rewrite the ending (ending_text, ending_kanji)
 - replace_climax: Rewrite the climax quote
-- regenerate: Recommend a full restart (when user explicitly asks to start over)
+- regenerate: Full restart (only when user explicitly asks to start over)
 
 Output ONLY valid JSON:
 {
-  "action": "add_pages|replace_ending|replace_climax|regenerate",
+  "action": "add_pages|rewrite_act|replace_ending|replace_climax|regenerate",
   "reasoning": "one sentence explaining what you're doing — shown to user",
   "insert_before": "climax|ending|end",
+  "rewrite_page_indices": [5, 6, 7],
   "pages": [
     {
       "type": "text",
       "act": "act label",
       "title": "chapter title",
-      "narr": "narrative text"
+      "narr": "narrative text, use <em>word</em> for emphasis"
     },
     {
       "type": "img",
       "image_prompt": "detailed scene — end with: black and white manga ink style, dramatic, high contrast",
-      "caption": "caption",
-      "bubble": "speech bubble or null"
+      "caption": "caption, use <em>word</em> for emphasis",
+      "bubble": "short speech bubble text (plain text, no HTML) or null"
     }
   ],
   "ending_text": "new ending text (for replace_ending)",
@@ -158,11 +160,12 @@ Output ONLY valid JSON:
 }
 
 Rules:
-- add_pages is the default for "add X" / "more X" / "dramatic scene" type requests
-- replace_ending for "make ending X" / "different ending" requests
-- replace_climax for "change the big moment" requests
-- regenerate ONLY if user says "start over" / "from scratch" / "completely different"
-- insert_before: use "climax" to add before the climax, "ending" to add before ending, "end" to append"""
+- add_pages: for "add X" / "more X" / "new scene" requests. Use insert_before to position.
+- rewrite_act: for "change act X" / "that part sucks" / "make it funnier" / "he should do Y instead". Provide rewrite_page_indices (0-based) of which pages to replace, and new pages in "pages".
+- replace_ending: for "make ending X" / "different ending"
+- replace_climax: for "change the big moment"
+- regenerate: ONLY if user says "start over" / "from scratch"
+- For rewrite_act: look at the page indices in the current story, identify which pages correspond to the user's feedback, and provide replacement pages. Keep the same number of pages or close to it."""
 
 
 # ── core call ──────────────────────────────────────────────────────────────────

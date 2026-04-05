@@ -509,20 +509,20 @@ export default function MangaReaderPage() {
             </div>
             {isLoaded && user && dbUserId && manga.user_id === dbUserId && (
               <div className="w-full max-w-[280px]">
-                <p className="text-[9px] tracking-[3px] uppercase text-[#252525] mb-3">Continue the story</p>
+                <p className="text-[9px] tracking-[3px] uppercase text-white/25 mb-3">Give feedback or continue</p>
                 {isSubscribed ? (
                   <>
                     <textarea
-                      className="w-full bg-[#0c0c0c] border border-[#1a1a1a] focus:border-white/15 text-white/50 text-xs px-3 py-2 resize-none outline-none placeholder:text-[#252525] transition-colors"
+                      className="w-full bg-[#0c0c0c] border border-white/10 focus:border-white/25 text-white/60 text-xs px-3 py-2 resize-none outline-none placeholder:text-white/20 transition-colors"
                       rows={3}
-                      placeholder="What should happen next?"
+                      placeholder="e.g. 'Change the ending' or 'Add a scene where...'"
                       value={enhanceText}
                       onChange={e => setEnhanceText(e.target.value)}
                     />
                     <button
                       onClick={handleEnhance}
                       disabled={!enhanceText.trim() || isEnhancing}
-                      className="mt-2 w-full text-[9px] tracking-[3px] uppercase border border-white/10 text-white/25 hover:text-white/60 hover:border-white/25 py-2.5 transition-all disabled:opacity-20"
+                      className="mt-2 w-full text-[9px] tracking-[3px] uppercase border border-white/15 text-white/50 hover:text-white/80 hover:border-white/30 py-2.5 transition-all disabled:opacity-30"
                     >
                       {isEnhancing ? "Working..." : "Apply →"}
                     </button>
