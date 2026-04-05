@@ -44,13 +44,13 @@ async def generate_theme_music(prompt: str) -> bytes:
 async def transcribe_voice(audio_bytes: bytes, filename: str = "voice.webm") -> str:
     """Transcribe a voice recording using Azure OpenAI Whisper."""
     from openai import AzureOpenAI
-    from core.config import AZURE_OPENAI_KEY, AZURE_OPENAI_ENDPOINT, AZURE_API_VERSION
+    from core.config import AZURE_OPENAI_KEY, AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_VERSION
     import io
 
     az = AzureOpenAI(
         api_key=AZURE_OPENAI_KEY,
         azure_endpoint=AZURE_OPENAI_ENDPOINT,
-        api_version=AZURE_API_VERSION,
+        api_version=AZURE_OPENAI_API_VERSION,
     )
     result = az.audio.transcriptions.create(
         model="whisper",

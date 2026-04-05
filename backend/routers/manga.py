@@ -345,10 +345,31 @@ def get_manga(manga_id: str, user_id: Optional[str] = None, db: Session = Depend
     if not manga:
         raise HTTPException(404, "Not found")
     # Allow access if: owner, guest (no user_id on manga), public, or still generating
+    is_owner = user_id and user_id == manga.user_id
     if manga.user_id and not manga.is_public:
-        if not user_id or user_id != manga.user_id:
+        if not is_owner:
             raise HTTPException(403, "Private")
-    return manga
+    # Build response — strip user_id for non-owners to prevent privacy leak
+    result = {
+        "id": manga.id,
+        "title": manga.title,
+        "title_jp": manga.title_jp,
+        "tagline": manga.tagline,
+        "subject_name": manga.subject_name,
+        "subject_description": manga.subject_description,
+        "status": manga.status,
+        "pages": manga.pages or [],
+        "audio_theme_url": manga.audio_theme_url,
+        "is_preview": manga.is_preview,
+        "is_public": manga.is_public,
+        "model_used": manga.model_used,
+        "enhance_message": manga.enhance_message,
+    }
+    # Only expose user_id and photo_url to the owner
+    if is_owner:
+        result["user_id"] = manga.user_id
+        result["photo_url"] = manga.photo_url
+    return result
 
 
 @router.post("/{manga_id}/share")

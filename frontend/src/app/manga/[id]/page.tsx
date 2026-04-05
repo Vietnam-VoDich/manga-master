@@ -48,6 +48,7 @@ export default function MangaReaderPage() {
   const [error, setError] = useState("")
   const [enhanceText, setEnhanceText] = useState("")
   const [isEnhancing, setIsEnhancing] = useState(false)
+  const [isExpanding, setIsExpanding] = useState(false)
 
   // Animate loading steps
   useEffect(() => {
@@ -185,6 +186,17 @@ export default function MangaReaderPage() {
       setPolling(true)
     } catch {}
     setIsEnhancing(false)
+  }
+
+  const handleExpand = async () => {
+    if (!dbUserId || !manga) return
+    setIsExpanding(true)
+    try {
+      await api.expandManga(manga.id, dbUserId)
+      setCur(0)
+      setPolling(true)
+    } catch {}
+    setIsExpanding(false)
   }
 
   const startBook = () => {
@@ -413,12 +425,34 @@ export default function MangaReaderPage() {
             </div>
             <div className="flex flex-col gap-2 w-full max-w-[240px]">
               {isLoaded && user && dbUserId && manga.user_id === dbUserId && (
-                <button
-                  onClick={handleShare}
-                  className="text-[10px] tracking-[3px] uppercase text-white/30 hover:text-white/60 border border-white/10 hover:border-white/25 px-6 py-3 transition-all w-full"
-                >
-                  {shareMsg || "Share this manga"}
-                </button>
+                manga.is_public ? (
+                  <div className="flex flex-col gap-1.5">
+                    <button
+                      onClick={() => {
+                        const url = `${window.location.origin}/manga/${manga.id}`
+                        navigator.clipboard.writeText(url)
+                        setShareMsg("Link copied!")
+                        setTimeout(() => setShareMsg(""), 2000)
+                      }}
+                      className="text-[10px] tracking-[3px] uppercase text-white/40 hover:text-white/70 border border-white/15 hover:border-white/30 px-6 py-3 transition-all w-full"
+                    >
+                      {shareMsg || "Copy share link"}
+                    </button>
+                    <button
+                      onClick={handleUnshare}
+                      className="text-[9px] tracking-[2px] uppercase text-white/15 hover:text-white/30 transition-colors"
+                    >
+                      Make private
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleShare}
+                    className="text-[10px] tracking-[3px] uppercase text-white/40 hover:text-white/70 border border-white/15 hover:border-white/30 px-6 py-3 transition-all w-full"
+                  >
+                    {shareMsg || "Share this book"}
+                  </button>
+                )
               )}
               <Link
                 href="/create"
@@ -427,23 +461,34 @@ export default function MangaReaderPage() {
                 Create another →
               </Link>
             </div>
-            {isLoaded && user && dbUserId && manga.user_id === dbUserId && isSubscribed && (
+            {isLoaded && user && dbUserId && manga.user_id === dbUserId && (
               <div className="w-full max-w-[280px]">
                 <p className="text-[9px] tracking-[3px] uppercase text-[#252525] mb-3">Continue the story</p>
-                <textarea
-                  className="w-full bg-[#0c0c0c] border border-[#1a1a1a] focus:border-white/15 text-white/50 text-xs px-3 py-2 resize-none outline-none placeholder:text-[#252525] transition-colors"
-                  rows={3}
-                  placeholder="What should happen next?"
-                  value={enhanceText}
-                  onChange={e => setEnhanceText(e.target.value)}
-                />
-                <button
-                  onClick={handleEnhance}
-                  disabled={!enhanceText.trim() || isEnhancing}
-                  className="mt-2 w-full text-[9px] tracking-[3px] uppercase border border-white/10 text-white/25 hover:text-white/60 hover:border-white/25 py-2.5 transition-all disabled:opacity-20"
-                >
-                  {isEnhancing ? "Working..." : "Apply →"}
-                </button>
+                {isSubscribed ? (
+                  <>
+                    <textarea
+                      className="w-full bg-[#0c0c0c] border border-[#1a1a1a] focus:border-white/15 text-white/50 text-xs px-3 py-2 resize-none outline-none placeholder:text-[#252525] transition-colors"
+                      rows={3}
+                      placeholder="What should happen next?"
+                      value={enhanceText}
+                      onChange={e => setEnhanceText(e.target.value)}
+                    />
+                    <button
+                      onClick={handleEnhance}
+                      disabled={!enhanceText.trim() || isEnhancing}
+                      className="mt-2 w-full text-[9px] tracking-[3px] uppercase border border-white/10 text-white/25 hover:text-white/60 hover:border-white/25 py-2.5 transition-all disabled:opacity-20"
+                    >
+                      {isEnhancing ? "Working..." : "Apply →"}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={handleSubscribe}
+                    className="w-full text-[9px] tracking-[3px] uppercase border border-white/10 text-white/25 hover:text-white/60 hover:border-white/25 py-2.5 transition-all"
+                  >
+                    Subscribe to continue →
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -474,14 +519,15 @@ export default function MangaReaderPage() {
                       <p className="text-[9px] tracking-[4px] uppercase text-white/20 mb-3">Subscription active</p>
                       <p className="font-serif text-xl sm:text-2xl text-white/80 font-semibold mb-3 leading-snug">Expand your story</p>
                       <p className="text-xs text-white/30 mb-6 max-w-[220px] leading-relaxed">
-                        Go to your dashboard to expand this manga into the full 20+ page story.
+                        Unlock the full 20+ page story with voice narration and soundtrack.
                       </p>
-                      <Link
-                        href="/dashboard"
-                        className="bg-white text-black text-[10px] tracking-[4px] uppercase px-8 py-3 font-semibold hover:bg-white/90 transition-all mb-3 block w-full max-w-[220px] text-center"
+                      <button
+                        onClick={handleExpand}
+                        disabled={isExpanding}
+                        className="bg-white text-black text-[10px] tracking-[4px] uppercase px-8 py-3 font-semibold hover:bg-white/90 transition-all mb-3 w-full max-w-[220px] disabled:opacity-50"
                       >
-                        Go to Dashboard →
-                      </Link>
+                        {isExpanding ? "Expanding..." : "Expand Full Story →"}
+                      </button>
                       <Link href="/create" className="text-[9px] tracking-widest uppercase text-white/20 hover:text-white/40 transition-colors">
                         Create another manga →
                       </Link>
@@ -542,10 +588,10 @@ export default function MangaReaderPage() {
       </div>
 
       {/* Nav bar (desktop) */}
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-3 opacity-30 hover:opacity-100 transition-opacity z-30">
-        <button onClick={() => go(-1)} disabled={cur === 0} className="w-7 h-7 rounded-full border border-[#1a1a1a] bg-black/70 text-[#444] text-xs flex items-center justify-center disabled:opacity-15">◀</button>
-        <span className="text-[9px] text-[#222] tracking-widest">{cur + 1} / {manga.pages.length}</span>
-        <button onClick={() => go(1)} disabled={cur === manga.pages.length - 1} className="w-7 h-7 rounded-full border border-[#1a1a1a] bg-black/70 text-[#444] text-xs flex items-center justify-center disabled:opacity-15">▶</button>
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-3 opacity-50 hover:opacity-100 transition-opacity z-30">
+        <button onClick={() => go(-1)} disabled={cur === 0} className="w-8 h-8 rounded-full border border-white/15 bg-black/80 text-white/40 text-xs flex items-center justify-center disabled:opacity-20 hover:text-white/70 hover:border-white/30 transition-colors">◀</button>
+        <span className="text-[9px] text-white/30 tracking-widest">{cur + 1} / {manga.pages.length}</span>
+        <button onClick={() => go(1)} disabled={cur === manga.pages.length - 1} className="w-8 h-8 rounded-full border border-white/15 bg-black/80 text-white/40 text-xs flex items-center justify-center disabled:opacity-20 hover:text-white/70 hover:border-white/30 transition-colors">▶</button>
       </div>
     </div>
   )

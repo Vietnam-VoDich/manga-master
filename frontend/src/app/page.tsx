@@ -163,7 +163,7 @@ export default function LandingPage() {
         <div className="border border-white/10 p-8">
           <div className="font-serif text-5xl font-black text-white mb-1">$12</div>
           <div className="text-[10px] tracking-widest text-white/40 mb-8">per month</div>
-          <ul className="text-xs text-white/60 space-y-3 mb-8 text-left">
+          <ul className="text-xs text-white/75 space-y-3 mb-8 text-left">
             {["Unlimited mangas", "Full story — 20–25 pages", "Voice narration", "Cinematic soundtrack", "Mobile + desktop reader", "Share with anyone"].map(f => (
               <li key={f} className="flex items-center gap-3"><span className="text-white/15">—</span>{f}</li>
             ))}
