@@ -163,34 +163,23 @@ async def _build_manga(manga_id: str, photo_bytes: bytes | None, db: Session, to
                     _save_music(outline.get("music_prompt", "cinematic dramatic orchestral slow"), manga_id)
                 )
 
-            # Render new pages from this act
+            # Render new pages from this act — images in parallel
+            act_img_pages = [p for p in chunk.get("new_pages", []) if p["type"] == "img"]
+            act_other_pages = [p for p in chunk.get("new_pages", []) if p["type"] != "img"]
+
+            # Generate all images for this act in parallel
+            img_tasks = [_render_one_image(p, photo_bytes) for p in act_img_pages]
+            img_results = await asyncio.gather(*img_tasks) if img_tasks else []
+
+            # Rebuild page order
+            img_iter = iter(img_results)
             for page in chunk.get("new_pages", []):
                 if page["type"] == "text":
                     pages.append(page)
                 elif page["type"] == "img":
-                    try:
-                        if photo_bytes:
-                            img_bytes = await manga_ify_photo(photo_bytes, page["image_prompt"])
-                        else:
-                            img_bytes = await generate_manga_image(page["image_prompt"])
-                        img_url = await upload(img_bytes, "png", "pages")
-                    except Exception:
-                        continue
-                    narr_url = None
-                    caption = page.get("caption", "")
-                    if caption:
-                        try:
-                            narr_bytes = await generate_narration(caption)
-                            narr_url = await upload(narr_bytes, "mp3", "narration")
-                        except Exception:
-                            pass
-                    pages.append({
-                        "type": "img",
-                        "image_url": img_url,
-                        "caption": caption,
-                        "bubble": page.get("bubble"),
-                        "narration_url": narr_url,
-                    })
+                    rendered = next(img_iter)
+                    if rendered:
+                        pages.append(rendered)
                 elif page["type"] in ("climax", "ending"):
                     pages.append(page)
 
