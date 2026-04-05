@@ -389,12 +389,6 @@ export default function MangaReaderPage() {
           <>
             <div className="flex-1 overflow-hidden relative bg-[#080808] min-h-0">
               <img src={page.image_url} className="w-full h-full object-cover object-top" style={{ filter: "contrast(1.05)" }} alt="" />
-              {page.bubble && (
-                <div
-                  className="absolute top-3 left-3 bg-[#e8e6df] text-[#111] rounded-xl px-3 py-2 text-xs font-semibold max-w-[180px] leading-snug shadow-lg"
-                  dangerouslySetInnerHTML={{ __html: page.bubble }}
-                />
-              )}
             </div>
             {page.caption && (
               <div
