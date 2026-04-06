@@ -35,6 +35,8 @@ export default function MangaDetailsPage() {
   const { user, isLoaded } = useUser()
   const [manga, setManga] = useState<MangaData | null>(null)
   const [dbUserId, setDbUserId] = useState("")
+  const [isSubscribed, setIsSubscribed] = useState(false)
+  const [expanding, setExpanding] = useState(false)
 
   useEffect(() => {
     if (!isLoaded || !user) return
@@ -42,8 +44,9 @@ export default function MangaDetailsPage() {
       clerk_id: user.id,
       email: user.primaryEmailAddress?.emailAddress ?? "",
       name: user.fullName ?? undefined,
-    }).then(async (u: { id: string }) => {
+    }).then(async (u: { id: string; is_subscribed: boolean }) => {
       setDbUserId(u.id)
+      setIsSubscribed(u.is_subscribed)
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/manga/${id}?user_id=${u.id}`)
       if (!res.ok) { router.push("/dashboard"); return }
       const m = await res.json()
@@ -187,6 +190,22 @@ export default function MangaDetailsPage() {
 
         {/* Actions */}
         <div className="flex flex-wrap gap-3 justify-center pb-12">
+          {manga.is_preview && isSubscribed && (
+            <button
+              onClick={async () => {
+                if (!dbUserId || expanding) return
+                setExpanding(true)
+                try {
+                  await api.expandManga(manga.id, dbUserId)
+                  router.push(`/manga/${manga.id}`)
+                } catch { setExpanding(false) }
+              }}
+              disabled={expanding}
+              className="bg-white text-black text-[10px] tracking-[4px] uppercase px-6 py-3 font-semibold hover:bg-white/90 transition-all disabled:opacity-50"
+            >
+              {expanding ? "Expanding..." : "Expand full story →"}
+            </button>
+          )}
           <Link href={`/manga/${manga.id}`} className="text-[9px] tracking-[3px] uppercase text-white/30 hover:text-white/60 border border-white/10 hover:border-white/25 px-5 py-2.5 transition-all">
             Read manga
           </Link>
