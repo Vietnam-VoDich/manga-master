@@ -97,7 +97,7 @@ function DashboardInner() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1">
             {mangas.map(m => (
               <div key={m.id} className="group border border-white/5 hover:border-white/15 transition-all flex flex-col">
-                <Link href={`/manga/${m.id}`} className="block">
+                <Link href={`/manga/${m.id}/details`} className="block">
                   {/* Cover image area */}
                   <div className="relative aspect-[3/4] overflow-hidden bg-[#080808]">
                     {m.cover_image ? (

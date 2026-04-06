@@ -464,10 +464,11 @@ def get_manga(manga_id: str, user_id: Optional[str] = None, db: Session = Depend
         "model_used": manga.model_used,
         "enhance_message": manga.enhance_message,
     }
-    # Only expose user_id and photo_url to the owner
+    # Only expose user_id, photos, and description to the owner
     if is_owner:
         result["user_id"] = manga.user_id
         result["photo_url"] = manga.photo_url
+        result["photos"] = manga.photos or []
     return result
 
 
