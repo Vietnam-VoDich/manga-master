@@ -56,7 +56,9 @@ def _fallback_client() -> tuple[AzureOpenAI, str]:
 
 # ── prompts ────────────────────────────────────────────────────────────────────
 
-OUTLINE_SYSTEM = """You are a manga story planner. Given a person's description, plan a manga.
+OUTLINE_SYSTEM = """You are a manga story planner. Given a subject's description, plan a manga.
+The subject can be a person, an animal/pet, a group of people, or anything — adapt your story accordingly.
+If the subject is an animal, the story should feature them AS that animal (not as a human).
 
 Output ONLY valid JSON:
 {
@@ -75,10 +77,10 @@ Output ONLY valid JSON:
 
 Rules:
 - 4-5 acts for full manga, 1 act for preview
-- Act names should reflect the person's specific story arc
+- Act names should reflect the subject's specific story arc
 - Each act's plot must advance the story — no repetition, clear progression
 - Plan the FULL arc upfront: setup → escalation → twist → consequences → resolution
-- Keep titles punchy and specific to this person"""
+- Keep titles punchy and specific to this subject"""
 
 
 ACT_SYSTEM = """You are a manga page writer. Write pages for ONE act of a manga.
@@ -104,9 +106,11 @@ Output ONLY valid JSON:
 
 Rules:
 - EXACTLY 1 text page + 1-3 image pages per act
-- Be SPECIFIC. Use the person's actual habits, quirks, and details.
+- Be SPECIFIC. Use the subject's actual habits, quirks, and details.
+- If the subject is an animal/pet, keep them as that animal in every image_prompt — describe the animal's breed, size, coloring, and features. NEVER turn an animal into a human character.
+- If the subject is a person, describe them as human. If multiple people, identify each by name in image prompts.
 - CRITICAL: Each image_prompt MUST describe a COMPLETELY DIFFERENT scene, angle, location, or moment. Never repeat the same setting or composition across panels. Vary: close-up vs wide shot, indoor vs outdoor, different characters in frame, different actions, different times of day.
-- Image prompts = real scenes with real people doing real things, not abstract.
+- Image prompts = real scenes with real subjects doing real things, not abstract.
 - narr: MAX 3 short punchy sentences. Rhythmic, not paragraphs.
 - bubble: plain text only, NO HTML tags like <em>. Keep it short and punchy.
 - Match the tone specified in the user prompt — don't default to comedy or roasting unless asked."""

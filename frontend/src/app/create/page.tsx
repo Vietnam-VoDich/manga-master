@@ -125,7 +125,7 @@ export default function CreatePage() {
         {step === "photo" && (
           <div className="w-full max-w-sm text-center">
             <h2 className="font-serif text-2xl sm:text-3xl text-white/80 mb-2">Upload a photo</h2>
-            <p className="text-sm text-white/30 mb-8">The manga character will resemble this person</p>
+            <p className="text-sm text-white/30 mb-8">The manga character will resemble this person or pet</p>
 
             <label
               className="group border border-white/10 w-full aspect-[3/4] max-w-[240px] mx-auto flex flex-col items-center justify-center cursor-pointer hover:border-white/30 active:border-white/40 transition-all block"
@@ -173,7 +173,7 @@ export default function CreatePage() {
 
             <div className="space-y-4">
               <div>
-                <label className="text-[9px] tracking-[4px] uppercase text-white/30 block mb-2">Their name</label>
+                <label className="text-[9px] tracking-[4px] uppercase text-white/30 block mb-2">Name</label>
                 <input
                   className="w-full bg-transparent border border-white/10 px-4 py-3 text-base text-white/80 focus:outline-none focus:border-white/40 placeholder:text-white/15"
                   placeholder="e.g. Ata"
@@ -183,10 +183,10 @@ export default function CreatePage() {
               </div>
 
               <div>
-                <label className="text-[9px] tracking-[4px] uppercase text-white/30 block mb-2">Their story</label>
+                <label className="text-[9px] tracking-[4px] uppercase text-white/30 block mb-2">The story</label>
                 <textarea
                   className="w-full bg-transparent border border-white/10 px-4 py-3 text-base text-white/80 focus:outline-none focus:border-white/40 placeholder:text-white/15 resize-none h-32 sm:h-40"
-                  placeholder="Who are they? Their job, quirks, dreams, disasters... The more specific the better."
+                  placeholder="Who are they? A person, a pet, a duo? Their quirks, habits, dreams... The more specific the better."
                   value={description}
                   onChange={e => setDescription(e.target.value)}
                 />

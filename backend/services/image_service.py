@@ -100,13 +100,14 @@ async def generate_manga_image(prompt: str) -> bytes:
 async def manga_ify_photo(photo_bytes: bytes, scene_prompt: str) -> bytes:
     """
     Turn a real photo into a manga panel.
-    The generated character MUST resemble the person in the photo.
+    The generated character MUST resemble the subject in the photo (person or animal).
     """
     img = Image.open(io.BytesIO(photo_bytes))
     edit_prompt = (
-        "IMPORTANT: The main character in this image MUST closely resemble the person in the reference photo. "
-        "Preserve their exact face shape, nose, eyes, jawline, hair style, hair color, skin tone, and any distinctive features (beard, glasses, etc). "
-        "The character should be immediately recognizable as this person drawn in manga style.\n\n"
+        "IMPORTANT: The main character in this image MUST closely resemble the subject in the reference photo. "
+        "If the subject is a PERSON: preserve their exact face shape, nose, eyes, jawline, hair style, hair color, skin tone, and any distinctive features (beard, glasses, etc). "
+        "If the subject is an ANIMAL/PET: preserve their exact species, breed, fur color/pattern, size, and distinctive markings. Keep them as an animal — do NOT turn them into a human. "
+        "The character should be immediately recognizable as this subject drawn in manga style.\n\n"
         f"Scene: {scene_prompt}\n"
         "Style: high-contrast black and white manga ink art, dramatic shadows, cinematic."
     )
@@ -131,8 +132,8 @@ async def manga_ify_photo(photo_bytes: bytes, scene_prompt: str) -> bytes:
     # Attempt 2: retry with simpler prompt but still with photo
     try:
         simple_prompt = (
-            "Draw this person as a manga character in this scene: " + scene_prompt + ". "
-            "Keep their face the same. Black and white manga ink style."
+            "Draw the subject from the reference photo as a manga character in this scene: " + scene_prompt + ". "
+            "If it's a person, keep their face the same. If it's an animal, keep it as that animal. Black and white manga ink style."
         )
         response = client.models.generate_content(
             model=IMAGE_MODEL,
