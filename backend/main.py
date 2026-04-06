@@ -12,6 +12,7 @@ app = FastAPI(title="Manga Master API", version="1.0.0")
 # Run safe migrations on startup
 with engine.connect() as conn:
     conn.execute(text("ALTER TABLE mangas ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT FALSE"))
+    conn.execute(text("ALTER TABLE mangas ADD COLUMN IF NOT EXISTS photos JSON DEFAULT '[]'"))
     # Reset any mangas stuck in generating/streaming from a previous crashed process
     conn.execute(text("UPDATE mangas SET status='error' WHERE status IN ('generating', 'streaming')"))
     conn.commit()

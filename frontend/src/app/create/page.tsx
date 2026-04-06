@@ -11,8 +11,7 @@ export default function CreatePage() {
   const { user, isLoaded } = useUser()
   const router = useRouter()
   const [step, setStep] = useState<Step>("photo")
-  const [photo, setPhoto] = useState<File | null>(null)
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [photos, setPhotos] = useState<{ file: File; preview: string; caption: string }[]>([])
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [tone, setTone] = useState<"emotional" | "humorous" | "roast">("humorous")
@@ -38,16 +37,24 @@ export default function CreatePage() {
     }).then((u: { id: string }) => setDbUserId(u.id)).catch(console.error)
   }, [isLoaded, user])
 
-  const handlePhoto = (file: File) => {
-    setPhoto(file)
-    setPhotoPreview(URL.createObjectURL(file))
-    setStep("story")
+  const addPhoto = (file: File) => {
+    if (photos.length >= 5) return
+    setPhotos(prev => [...prev, { file, preview: URL.createObjectURL(file), caption: "" }])
+    if (step === "photo") setStep("story")
+  }
+
+  const removePhoto = (index: number) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const updateCaption = (index: number, caption: string) => {
+    setPhotos(prev => prev.map((p, i) => i === index ? { ...p, caption } : p))
   }
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
-    const file = e.dataTransfer.files?.[0]
-    if (file && file.type.startsWith("image/")) handlePhoto(file)
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"))
+    files.slice(0, 5 - photos.length).forEach(addPhoto)
   }
 
   const startRecording = async () => {
@@ -98,7 +105,8 @@ export default function CreatePage() {
       fd.append("description", description)
       fd.append("tone", tone)
       if (userId) fd.append("user_id", userId)
-      if (photo) fd.append("photo", photo)
+      photos.forEach(p => fd.append("photos", p.file))
+      fd.append("captions", JSON.stringify(photos.map(p => p.caption)))
       const data = await api.createManga(fd)
       localStorage.setItem("last_manga_id", data.manga_id)
       router.push(`/manga/${data.manga_id}`)
@@ -125,23 +133,50 @@ export default function CreatePage() {
         {step === "photo" && (
           <div className="w-full max-w-sm text-center">
             <h2 className="font-serif text-2xl sm:text-3xl text-white/80 mb-2">Upload a photo</h2>
-            <p className="text-sm text-white/30 mb-8">The manga character will resemble this person or pet</p>
+            <p className="text-sm text-white/30 mb-8">The manga characters will resemble the photo</p>
 
-            <label
-              className="group border border-white/10 w-full aspect-[3/4] max-w-[240px] mx-auto flex flex-col items-center justify-center cursor-pointer hover:border-white/30 active:border-white/40 transition-all block"
-              onDragOver={e => e.preventDefault()}
-              onDrop={handleDrop}
-            >
-              <span className="text-4xl text-white/10 group-hover:text-white/30 transition-colors mb-3">+</span>
-              <span className="text-[10px] tracking-widest uppercase text-white/20 group-hover:text-white/40 transition-colors">Drop photo or click</span>
-              <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handlePhoto(f) }} />
-            </label>
+            {photos.length === 0 ? (
+              /* First photo — big upload box */
+              <label
+                className="group border border-white/10 w-full aspect-[3/4] max-w-[240px] mx-auto flex flex-col items-center justify-center cursor-pointer hover:border-white/30 active:border-white/40 transition-all block"
+                onDragOver={e => e.preventDefault()}
+                onDrop={handleDrop}
+              >
+                <span className="text-4xl text-white/10 group-hover:text-white/30 transition-colors mb-3">+</span>
+                <span className="text-[10px] tracking-widest uppercase text-white/20 group-hover:text-white/40 transition-colors">Drop photo or click</span>
+                <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) addPhoto(f) }} />
+              </label>
+            ) : (
+              /* Photos uploaded — show them big with add more */
+              <div className="flex flex-col items-center gap-4">
+                <div className="flex flex-wrap justify-center gap-3">
+                  {photos.map((p, i) => (
+                    <div key={i} className="relative w-[140px] h-[187px] border border-white/20 overflow-hidden group">
+                      <img src={p.preview} className="w-full h-full object-cover" alt="" />
+                      <button onClick={() => removePhoto(i)} className="absolute top-1 right-1 w-5 h-5 bg-black/80 text-white/70 text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">✕</button>
+                    </div>
+                  ))}
+                  {photos.length < 5 && (
+                    <label
+                      className="group border border-dashed border-white/15 w-[140px] h-[187px] flex flex-col items-center justify-center cursor-pointer hover:border-white/30 transition-all"
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={handleDrop}
+                    >
+                      <span className="text-3xl text-white/10 group-hover:text-white/30 transition-colors mb-1">+</span>
+                      <span className="text-[9px] tracking-widest uppercase text-white/15 group-hover:text-white/35 transition-colors">Add another</span>
+                      <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) addPhoto(f) }} />
+                    </label>
+                  )}
+                </div>
+                <p className="text-[9px] text-white/20 tracking-widest">{photos.length} / 5 photos</p>
+              </div>
+            )}
 
             <button
               onClick={() => setStep("story")}
               className="mt-6 text-[10px] tracking-widest uppercase text-white/15 hover:text-white/40 transition-colors py-3 w-full"
             >
-              Skip — describe only
+              {photos.length > 0 ? "Continue →" : "Skip — describe only"}
             </button>
           </div>
         )}
@@ -152,24 +187,34 @@ export default function CreatePage() {
             <h2 className="font-serif text-2xl sm:text-3xl text-white/80 mb-2 text-center">Tell their story</h2>
             <p className="text-sm text-white/30 mb-8 text-center">The more specific, the funnier the manga</p>
 
-            {photoPreview ? (
-              <div className="flex items-center justify-center gap-3 mb-6">
-                <div className="w-14 h-18 overflow-hidden border border-white/10">
-                  <img src={photoPreview} className="w-full h-full object-cover grayscale" alt="preview" />
+            {/* Photo strip with captions */}
+            <div className="flex flex-wrap justify-center gap-3 mb-6">
+              {photos.map((p, i) => (
+                <div key={i} className="flex flex-col items-center gap-1.5">
+                  <div className="relative w-[150px] h-[200px] border border-white/15 overflow-hidden group">
+                    <img src={p.preview} className="w-full h-full object-cover" alt="" />
+                    <button onClick={() => removePhoto(i)} className="absolute top-1 right-1 w-5 h-5 bg-black/80 text-white/70 text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">✕</button>
+                  </div>
+                  <input
+                    className="w-[150px] bg-transparent border-b border-white/10 text-[10px] text-white/50 text-center py-1 focus:outline-none focus:border-white/30 placeholder:text-white/15"
+                    placeholder="e.g. This is Ata"
+                    value={p.caption}
+                    onChange={e => updateCaption(i, e.target.value)}
+                  />
                 </div>
-                <button onClick={() => { setPhoto(null); setPhotoPreview(null) }} className="text-[9px] tracking-widest uppercase text-white/20 hover:text-white/40 transition-colors">Remove</button>
-              </div>
-            ) : (
-              <label
-                className="group border border-white/10 w-full max-w-[200px] aspect-[3/4] mx-auto flex flex-col items-center justify-center cursor-pointer hover:border-white/30 active:border-white/40 transition-all block mb-6"
-                onDragOver={e => e.preventDefault()}
-                onDrop={handleDrop}
-              >
-                <span className="text-3xl text-white/10 group-hover:text-white/30 transition-colors mb-2">+</span>
-                <span className="text-[9px] tracking-widest uppercase text-white/20 group-hover:text-white/40 transition-colors">Drop photo or click</span>
-                <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handlePhoto(f) }} />
-              </label>
-            )}
+              ))}
+              {photos.length < 5 && (
+                <label
+                  className="group border border-dashed border-white/10 w-[150px] h-[200px] flex flex-col items-center justify-center cursor-pointer hover:border-white/25 transition-all"
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={handleDrop}
+                >
+                  <span className="text-3xl text-white/10 group-hover:text-white/25 transition-colors">+</span>
+                  <span className="text-[9px] text-white/15 group-hover:text-white/30 transition-colors mt-1">Add photo</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) addPhoto(f) }} />
+                </label>
+              )}
+            </div>
 
             <div className="space-y-4">
               <div>
@@ -185,7 +230,7 @@ export default function CreatePage() {
               <div>
                 <label className="text-[9px] tracking-[4px] uppercase text-white/30 block mb-2">The story</label>
                 <textarea
-                  className="w-full bg-transparent border border-white/10 px-4 py-3 text-base text-white/80 focus:outline-none focus:border-white/40 placeholder:text-white/15 resize-none h-32 sm:h-40"
+                  className="w-full bg-transparent border border-white/10 px-4 py-3 text-base text-white/80 focus:outline-none focus:border-white/40 placeholder:text-white/15 resize-none h-24 sm:h-28"
                   placeholder="Who are they? A person, a pet, a duo? Their quirks, habits, dreams... The more specific the better."
                   value={description}
                   onChange={e => setDescription(e.target.value)}

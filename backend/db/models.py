@@ -28,7 +28,8 @@ class Manga(Base):
     tagline = Column(String)
     subject_name = Column(String)
     subject_description = Column(Text)
-    photo_url = Column(String)
+    photo_url = Column(String)                  # legacy single photo
+    photos = Column(JSON, default=[])             # [{url, caption}] — multi-photo support
     status = Column(String, default="pending")  # pending | generating | preview | complete | error
     pages = Column(JSON, default=[])            # [{type, image_url, caption, narration_url, ...}]
     audio_theme_url = Column(String)

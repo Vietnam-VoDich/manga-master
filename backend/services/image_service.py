@@ -97,26 +97,52 @@ async def generate_manga_image(prompt: str) -> bytes:
     raise ValueError("All image generation attempts failed")
 
 
-async def manga_ify_photo(photo_bytes: bytes, scene_prompt: str) -> bytes:
+async def manga_ify_photo(photo_bytes: bytes, scene_prompt: str, extra_photos: list[dict] | None = None) -> bytes:
     """
     Turn a real photo into a manga panel.
     The generated character MUST resemble the subject in the photo (person or animal).
+    extra_photos: optional list of {bytes, caption} for additional reference photos.
     """
     img = Image.open(io.BytesIO(photo_bytes))
-    edit_prompt = (
-        "IMPORTANT: The main character in this image MUST closely resemble the subject in the reference photo. "
-        "If the subject is a PERSON: preserve their exact face shape, nose, eyes, jawline, hair style, hair color, skin tone, and any distinctive features (beard, glasses, etc). "
-        "If the subject is an ANIMAL/PET: preserve their exact species, breed, fur color/pattern, size, and distinctive markings. Keep them as an animal — do NOT turn them into a human. "
-        "The character should be immediately recognizable as this subject drawn in manga style.\n\n"
-        f"Scene: {scene_prompt}\n"
-        "Style: high-contrast black and white manga ink art, dramatic shadows, cinematic."
-    )
 
-    # Attempt 1: with photo reference
+    # Build multi-photo contents if we have extra references
+    if extra_photos:
+        contents = [
+            "You are given multiple reference photos. Each character in the manga panel MUST closely resemble "
+            "the subject in their respective reference photo.\n"
+            "If a subject is a PERSON: preserve their exact face shape, nose, eyes, jawline, hair style, hair color, skin tone, and distinctive features.\n"
+            "If a subject is an ANIMAL/PET: preserve their exact species, breed, fur color/pattern, size, and markings. Keep them as an animal.\n\n"
+            "Reference photo 1:\n",
+            img,
+        ]
+        for i, ep in enumerate(extra_photos):
+            cap = ep.get("caption", "")
+            label = f"\n\nReference photo {i+2}"
+            if cap:
+                label += f" ({cap})"
+            label += ":\n"
+            contents.append(label)
+            contents.append(Image.open(io.BytesIO(ep["bytes"])))
+        contents.append(
+            f"\n\nScene: {scene_prompt}\n"
+            "Style: high-contrast black and white manga ink art, dramatic shadows, cinematic."
+        )
+    else:
+        contents = [
+            "IMPORTANT: The main character in this image MUST closely resemble the subject in the reference photo. "
+            "If the subject is a PERSON: preserve their exact face shape, nose, eyes, jawline, hair style, hair color, skin tone, and any distinctive features (beard, glasses, etc). "
+            "If the subject is an ANIMAL/PET: preserve their exact species, breed, fur color/pattern, size, and distinctive markings. Keep them as an animal — do NOT turn them into a human. "
+            "The character should be immediately recognizable as this subject drawn in manga style.\n\n"
+            f"Scene: {scene_prompt}\n"
+            "Style: high-contrast black and white manga ink art, dramatic shadows, cinematic.",
+            img,
+        ]
+
+    # Attempt 1: with photo reference(s)
     try:
         response = client.models.generate_content(
             model=IMAGE_MODEL,
-            contents=[edit_prompt, img],
+            contents=contents,
             config=types.GenerateContentConfig(
                 response_modalities=["IMAGE", "TEXT"],
                 image_config=IMAGE_CONFIG,
@@ -129,7 +155,7 @@ async def manga_ify_photo(photo_bytes: bytes, scene_prompt: str) -> bytes:
     except Exception as e:
         logger.warning(f"Photo manga-ify attempt 1 failed: {e}")
 
-    # Attempt 2: retry with simpler prompt but still with photo
+    # Attempt 2: retry with simpler prompt but still with primary photo
     try:
         simple_prompt = (
             "Draw the subject from the reference photo as a manga character in this scene: " + scene_prompt + ". "

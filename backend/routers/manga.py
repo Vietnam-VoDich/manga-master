@@ -8,8 +8,10 @@ from services.image_service import generate_manga_image, manga_ify_photo
 from services.audio_service import generate_narration, generate_theme_music
 from services.storage_service import upload
 from core.auth import verify_clerk_token
-from typing import Optional
-import httpx, asyncio
+from typing import Optional, List
+import httpx, asyncio, json, logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -31,10 +33,18 @@ def _compress_image(raw_bytes: bytes, quality: int = 82) -> bytes:
         return raw_bytes
 
 
-async def _render_one_image(page: dict, photo_bytes: bytes | None) -> dict | None:
-    """Render a single image page — generate image + narration."""
+async def _render_one_image(page: dict, photo_bytes: bytes | None, all_photos: list[dict] | None = None) -> dict | None:
+    """Render a single image page — generate image + narration.
+    all_photos: list of {bytes, caption} dicts for multi-photo reference.
+    """
     try:
-        if photo_bytes:
+        if all_photos and len(all_photos) > 0:
+            img_bytes = await manga_ify_photo(
+                all_photos[0]["bytes"],
+                page["image_prompt"],
+                extra_photos=all_photos[1:] if len(all_photos) > 1 else None,
+            )
+        elif photo_bytes:
             img_bytes = await manga_ify_photo(photo_bytes, page["image_prompt"])
         else:
             img_bytes = await generate_manga_image(page["image_prompt"])
@@ -61,7 +71,7 @@ async def _render_one_image(page: dict, photo_bytes: bytes | None) -> dict | Non
     }
 
 
-async def _render_pages(raw_pages: list, photo_bytes: bytes | None) -> list:
+async def _render_pages(raw_pages: list, photo_bytes: bytes | None, all_photos: list[dict] | None = None) -> list:
     """Render story-script pages into fully-resolved page dicts. Images rendered in parallel."""
     # Separate img pages for parallel rendering, keep order
     img_indices = []
@@ -69,7 +79,7 @@ async def _render_pages(raw_pages: list, photo_bytes: bytes | None) -> list:
     for i, page in enumerate(raw_pages):
         if page["type"] == "img":
             img_indices.append(i)
-            img_tasks.append(_render_one_image(page, photo_bytes))
+            img_tasks.append(_render_one_image(page, photo_bytes, all_photos))
 
     # Run all image generations in parallel
     img_results = await asyncio.gather(*img_tasks) if img_tasks else []
@@ -105,6 +115,21 @@ async def _fetch_photo(photo_url: str | None) -> bytes | None:
         return None
 
 
+async def _load_all_photos(manga) -> list[dict] | None:
+    """Load all reference photos from manga.photos JSON. Returns list of {bytes, caption}."""
+    photos_meta = manga.photos or []
+    if not photos_meta:
+        # Fallback to legacy single photo
+        b = await _fetch_photo(manga.photo_url)
+        return [{"bytes": b, "caption": ""}] if b else None
+    results = []
+    for pm in photos_meta:
+        b = await _fetch_photo(pm.get("url"))
+        if b:
+            results.append({"bytes": b, "caption": pm.get("caption", "")})
+    return results if results else None
+
+
 def _pages_summary(pages: list) -> str:
     lines = []
     for i, p in enumerate(pages):
@@ -121,7 +146,7 @@ def _pages_summary(pages: list) -> str:
 
 # ── background tasks ────────────────────────────────────────────────────────────
 
-async def _build_manga(manga_id: str, photo_bytes: bytes | None, db: Session, tone: str = "humorous"):
+async def _build_manga(manga_id: str, photo_bytes: bytes | None, db: Session, tone: str = "humorous", all_photos: list[dict] | None = None):
     """Full generation pipeline — streams pages to DB as each act completes."""
     manga = db.query(Manga).filter(Manga.id == manga_id).first()
     if not manga:
@@ -133,11 +158,19 @@ async def _build_manga(manga_id: str, photo_bytes: bytes | None, db: Session, to
         user = db.query(User).filter(User.id == manga.user_id).first() if manga.user_id else None
         preview_only = not (user and user.is_subscribed)
 
+        # Build photo context for story agent from captions
+        photo_context = ""
+        if all_photos:
+            captions = [f"Photo {i+1}: {p['caption']}" for i, p in enumerate(all_photos) if p.get("caption")]
+            if captions:
+                photo_context = "\n\nReference photos provided:\n" + "\n".join(captions)
+
         pages = []
         music_task = None
         outline = {}
 
-        async for chunk in generate_story_streaming(manga.subject_name, manga.subject_description, preview_only, tone):
+        description_with_photos = manga.subject_description + photo_context
+        async for chunk in generate_story_streaming(manga.subject_name, description_with_photos, preview_only, tone):
             if not outline and chunk.get("outline"):
                 # First chunk — outline arrived, set title/tagline and start music
                 outline = chunk["outline"]
@@ -168,7 +201,7 @@ async def _build_manga(manga_id: str, photo_bytes: bytes | None, db: Session, to
             act_other_pages = [p for p in chunk.get("new_pages", []) if p["type"] != "img"]
 
             # Generate all images for this act in parallel
-            img_tasks = [_render_one_image(p, photo_bytes) for p in act_img_pages]
+            img_tasks = [_render_one_image(p, photo_bytes, all_photos) for p in act_img_pages]
             img_results = await asyncio.gather(*img_tasks) if img_tasks else []
 
             # Rebuild page order
@@ -215,6 +248,7 @@ async def _continue_manga(manga_id: str, db: Session):
         act_one_pages = list(manga.pages or [])
 
         photo_bytes = await _fetch_photo(manga.photo_url)
+        all_photos = await _load_all_photos(manga)
 
         script = await generate_continuation(
             manga.subject_name,
@@ -240,7 +274,7 @@ async def _continue_manga(manga_id: str, db: Session):
                     pass
             music_task = asyncio.create_task(_save_music_continue(music_prompt, manga_id))
 
-        new_pages = await _render_pages(script.get("pages", []), photo_bytes)
+        new_pages = await _render_pages(script.get("pages", []), photo_bytes, all_photos)
 
         if music_task:
             await asyncio.shield(music_task)
@@ -275,10 +309,11 @@ async def _run_enhance(manga_id: str, user_id: str, instruction: str, db: Sessio
 
         action = decision.get("action", "add_pages")
         photo_bytes = await _fetch_photo(manga.photo_url)
+        all_photos = await _load_all_photos(manga)
 
         if action == "add_pages":
             new_raw = decision.get("pages", [])
-            new_pages = await _render_pages(new_raw, photo_bytes)
+            new_pages = await _render_pages(new_raw, photo_bytes, all_photos)
 
             insert_before = decision.get("insert_before", "climax")
             insert_at = len(current_pages)
@@ -319,7 +354,7 @@ async def _run_enhance(manga_id: str, user_id: str, instruction: str, db: Sessio
             # Replace specific pages by index with new content
             indices = decision.get("rewrite_page_indices", [])
             new_raw = decision.get("pages", [])
-            new_pages = await _render_pages(new_raw, photo_bytes)
+            new_pages = await _render_pages(new_raw, photo_bytes, all_photos)
             if indices and new_pages:
                 # Build updated page list: keep pages not in indices, insert new ones at first index
                 insert_at = min(indices)
@@ -354,26 +389,52 @@ async def create_manga(
     description: str = Form(...),
     user_id: Optional[str] = Form(None),
     tone: str = Form("humorous"),
+    captions: Optional[str] = Form(None),  # JSON array of caption strings
     photo: UploadFile | None = File(None),
+    photos: List[UploadFile] = File(default=[]),
     db: Session = Depends(get_db),
 ):
-    """No auth required — guests can generate a preview manga."""
-    photo_bytes = await photo.read() if photo else None
+    """No auth required — guests can generate a preview manga.
+    Accepts either a single `photo` or multiple `photos[]` with optional `captions` (JSON array).
+    """
+    # Parse captions
+    caption_list = []
+    if captions:
+        try:
+            caption_list = json.loads(captions)
+        except Exception:
+            caption_list = []
+
     manga = Manga(user_id=user_id or None, subject_name=subject_name, subject_description=description)
     db.add(manga)
     db.commit()
     db.refresh(manga)
 
-    # Store original photo so expand/enhance can reuse it
-    if photo_bytes:
+    # Handle multiple photos
+    all_photos = []
+    photo_files = photos if photos else ([photo] if photo else [])
+    for i, pf in enumerate(photo_files):
+        if not pf or not pf.filename:
+            continue
         try:
-            photo_url = await upload(photo_bytes, "jpg", "photos")
-            manga.photo_url = photo_url
-            db.commit()
+            pbytes = await pf.read()
+            photo_url = await upload(pbytes, "jpg", "photos")
+            cap = caption_list[i] if i < len(caption_list) else ""
+            all_photos.append({"bytes": pbytes, "url": photo_url, "caption": cap})
         except Exception:
-            pass
+            logger.warning(f"Failed to upload photo {i}")
 
-    background_tasks.add_task(_build_manga, manga.id, photo_bytes, db, tone)
+    # Store photo metadata in DB
+    if all_photos:
+        manga.photo_url = all_photos[0]["url"]  # backward compat
+        manga.photos = [{"url": p["url"], "caption": p["caption"]} for p in all_photos]
+        db.commit()
+
+    # Strip bytes from all_photos before passing (only keep for generation)
+    photo_bytes = all_photos[0]["bytes"] if all_photos else None
+    gen_photos = all_photos if all_photos else None
+
+    background_tasks.add_task(_build_manga, manga.id, photo_bytes, db, tone, gen_photos)
     return {"manga_id": manga.id, "status": "pending"}
 
 
