@@ -181,7 +181,9 @@ export default function MangaEditPage() {
         return
       }
       setDbUserId(u.id)
-      const m = await api.getManga(id as string)
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/manga/${id}?user_id=${u.id}`)
+      if (!res.ok) { router.push("/dashboard"); return }
+      const m = await res.json()
       setManga(m)
     }).catch(console.error)
   }, [isLoaded, user, id])

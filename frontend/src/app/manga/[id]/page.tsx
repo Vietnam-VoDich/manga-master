@@ -382,6 +382,12 @@ export default function MangaReaderPage() {
       {/* Top bar */}
       <div className="fixed top-3 right-3 z-50 flex items-center gap-3">
         {shareMsg && <span className="text-[9px] tracking-widest text-white/40">{shareMsg}</span>}
+        {/* Edit button — only for subscribed owner */}
+        {isLoaded && user && dbUserId && manga.user_id === dbUserId && isSubscribed && !manga.is_preview && (
+          <Link href={`/manga/${manga.id}/edit`} className="text-[9px] tracking-widest uppercase text-white/25 hover:text-white/60 transition-colors">
+            Edit
+          </Link>
+        )}
         {/* Share controls — only for owner */}
         {isLoaded && user && dbUserId && manga.user_id === dbUserId && (
           manga.is_public ? (
