@@ -130,23 +130,23 @@ export default function MangaReaderPage() {
     } catch {}
   }, [id, isLoaded, user])
 
-  // Poll until manga is ready
+  // Poll until manga is ready — wait for auth if user is signed in
   useEffect(() => {
     if (!polling) return
+    // If user is signed in but dbUserId hasn't loaded yet, wait
+    if (isLoaded && user && !dbUserId) return
+    // Immediate first fetch, then poll every 3s
+    fetchManga(dbUserId)
     const timer = setInterval(() => fetchManga(dbUserId), 3000)
     return () => clearInterval(timer)
-  }, [polling, dbUserId, fetchManga])
+  }, [polling, dbUserId, fetchManga, isLoaded, user])
 
   // Re-fetch with user_id once auth loads (handles 403 → auth → retry)
   useEffect(() => {
     if (dbUserId && !polling && !error) {
-      // Auth loaded after polling stopped (403) — restart
       setPolling(true)
     }
-    if (dbUserId && manga && !manga.user_id) {
-      fetchManga(dbUserId)
-    }
-  }, [dbUserId, manga, fetchManga])
+  }, [dbUserId])
 
   const go = useCallback((dir: 1 | -1) => {
     if (!manga || turning) return
