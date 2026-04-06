@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { useUser, UserButton } from "@clerk/nextjs"
@@ -50,6 +50,23 @@ export default function MangaReaderPage() {
   const [isEnhancing, setIsEnhancing] = useState(false)
   const [isExpanding, setIsExpanding] = useState(false)
   const [showOverview, setShowOverview] = useState(false)
+  const [slideDir, setSlideDir] = useState<1 | -1 | 0>(0)
+  const preloadedRef = useRef<Set<string>>(new Set())
+
+  // Preload images for adjacent pages
+  useEffect(() => {
+    if (!manga) return
+    const toPreload = [cur - 1, cur + 1, cur + 2]
+    toPreload.forEach(i => {
+      if (i < 0 || i >= manga.pages.length) return
+      const p = manga.pages[i]
+      if (p.type === "img" && p.image_url && !preloadedRef.current.has(p.image_url)) {
+        const img = new Image()
+        img.src = p.image_url
+        preloadedRef.current.add(p.image_url)
+      }
+    })
+  }, [cur, manga])
 
   // Animate loading steps
   useEffect(() => {
@@ -132,12 +149,21 @@ export default function MangaReaderPage() {
   }, [dbUserId, manga, fetchManga])
 
   const go = useCallback((dir: 1 | -1) => {
-    if (!manga) return
+    if (!manga || turning) return
     const next = cur + dir
     if (next < 0 || next >= manga.pages.length) return
+    setSlideDir(dir)
     setTurning(true)
-    setTimeout(() => { setCur(next); setTurning(false) }, 150)
-  }, [cur, manga])
+    // Phase 1: fade+slide out (120ms), then swap content and fade+slide in
+    setTimeout(() => {
+      setCur(next)
+      // Brief pause to let new content mount, then fade in
+      requestAnimationFrame(() => {
+        setTurning(false)
+        setSlideDir(0)
+      })
+    }, 120)
+  }, [cur, manga, turning])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -389,7 +415,16 @@ export default function MangaReaderPage() {
 
       {/* Page frame — wider on desktop, phone-sized on mobile */}
       <div
-        className={`w-[96vw] max-w-[520px] sm:max-w-[600px] md:max-w-[700px] lg:max-w-[760px] h-[92dvh] max-h-[920px] bg-[#0a0a0a] border border-[#151515] flex flex-col overflow-hidden transition-opacity duration-150 ${turning ? "opacity-0" : "opacity-100"}`}
+        style={{
+          opacity: turning ? 0 : 1,
+          transform: turning
+            ? `translateX(${slideDir === 1 ? "-12px" : slideDir === -1 ? "12px" : "0"}) scale(0.99)`
+            : "translateX(0) scale(1)",
+          transition: turning
+            ? "opacity 120ms ease-out, transform 120ms ease-out"
+            : "opacity 180ms ease-in, transform 180ms ease-in",
+        }}
+        className="w-[96vw] max-w-[520px] sm:max-w-[600px] md:max-w-[700px] lg:max-w-[760px] h-[92dvh] max-h-[920px] bg-[#0a0a0a] border border-[#151515] flex flex-col overflow-hidden"
       >
         {page.type === "img" && (
           <>
