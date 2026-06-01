@@ -14,12 +14,14 @@ async def _get_jwks() -> dict:
     global _jwks_cache
     if _jwks_cache:
         return _jwks_cache
-    url = CLERK_JWKS_URL or f"https://api.clerk.com/v1/jwks"
+    url = CLERK_JWKS_URL or "https://api.clerk.com/v1/jwks"
     async with httpx.AsyncClient() as client:
         r = await client.get(url, headers={"Authorization": f"Bearer {CLERK_SECRET_KEY}"})
         r.raise_for_status()
-        _jwks_cache = r.json()
-        return _jwks_cache
+        data = r.json()
+        if data.get("keys"):
+            _jwks_cache = data
+        return data
 
 
 async def verify_clerk_token(authorization: str = Header(...)) -> dict:
