@@ -102,7 +102,9 @@ export default function MangaReaderPage() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/manga/${id}${params}`)
       if (res.status === 403) {
         if (!userId) {
-          // No auth yet — stop polling, wait for auth to load then re-fetch
+          // Auth finished loading and there's no signed-in user → truly private, show prompt
+          if (isLoaded && !user) { setError("private"); setPolling(false); return }
+          // Auth still resolving — stop polling, the auth effect re-triggers once dbUserId loads
           setPolling(false)
           return
         }
@@ -211,6 +213,27 @@ export default function MangaReaderPage() {
     } catch {}
   }
 
+  const shareTo = async (platform: "x" | "reddit" | "whatsapp") => {
+    if (!manga) return
+    // Ensure it's public so the link + preview card work for everyone the owner shares with
+    if (!manga.is_public && dbUserId && manga.user_id === dbUserId) {
+      try {
+        await api.toggleShare(manga.id, dbUserId)
+        setManga(prev => prev ? { ...prev, is_public: true } : prev)
+      } catch {}
+    }
+    const url = `${window.location.origin}/manga/${manga.id}`
+    const title = manga.title || manga.subject_name || "my manga"
+    const text = `Check out "${title}" — a manga I made on Emaki`
+    const enc = encodeURIComponent
+    const links: Record<typeof platform, string> = {
+      x: `https://twitter.com/intent/tweet?text=${enc(text)}&url=${enc(url)}`,
+      reddit: `https://www.reddit.com/submit?url=${enc(url)}&title=${enc(title)}`,
+      whatsapp: `https://wa.me/?text=${enc(`${text} ${url}`)}`,
+    }
+    window.open(links[platform], "_blank", "noopener,noreferrer")
+  }
+
   const handleSubscribe = async () => {
     if (!dbUserId) { window.location.href = "/dashboard"; return }
     try {
@@ -264,7 +287,7 @@ export default function MangaReaderPage() {
         <div className="font-serif text-5xl text-white/10 mb-6">鍵</div>
         <p className="text-xs tracking-widest text-white/30 uppercase mb-4">This manga is private</p>
         <p className="text-[10px] text-white/15 mb-8">Sign in to view your manga.</p>
-        <Link href={`/sign-in?redirect_url=/manga/${id}`} className="border border-white/20 text-white/40 text-[10px] tracking-[4px] uppercase px-8 py-3 hover:bg-white hover:text-black transition-all">
+        <Link href={`/login?redirect_url=/manga/${id}`} className="border border-white/20 text-white/40 text-[10px] tracking-[4px] uppercase px-8 py-3 hover:bg-white hover:text-black transition-all">
           Sign In
         </Link>
       </div>
@@ -548,6 +571,17 @@ export default function MangaReaderPage() {
                 Create another →
               </Link>
             </div>
+            {/* Social share — owner can share (auto-publishes); anyone can share an already-public manga */}
+            {manga.status !== "error" && (manga.is_public || (isLoaded && user && dbUserId && manga.user_id === dbUserId)) && (
+              <div className="flex flex-col items-center gap-2">
+                <p className="text-[9px] tracking-[3px] uppercase text-white/20">Share to</p>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => shareTo("x")} className="text-[10px] tracking-[2px] uppercase text-white/35 hover:text-white/80 border border-white/10 hover:border-white/30 px-3 py-2 transition-all">𝕏</button>
+                  <button onClick={() => shareTo("reddit")} className="text-[9px] tracking-[2px] uppercase text-white/35 hover:text-white/80 border border-white/10 hover:border-white/30 px-3 py-2 transition-all">Reddit</button>
+                  <button onClick={() => shareTo("whatsapp")} className="text-[9px] tracking-[2px] uppercase text-white/35 hover:text-white/80 border border-white/10 hover:border-white/30 px-3 py-2 transition-all">WhatsApp</button>
+                </div>
+              </div>
+            )}
             {isLoaded && user && dbUserId && manga.user_id === dbUserId && (
               <div className="w-full max-w-[280px]">
                 <p className="text-[9px] tracking-[3px] uppercase text-white/25 mb-3">Give feedback or continue</p>

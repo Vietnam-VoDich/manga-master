@@ -226,7 +226,13 @@ async def _build_manga(manga_id: str, photo_bytes: bytes | None, db: Session, to
             await asyncio.shield(music_task)
 
         manga.is_preview = preview_only
-        manga.status = "preview" if preview_only else "complete"
+        # Guard: if image generation failed for every panel, don't fake-complete a text-only manga
+        rendered_imgs = sum(1 for p in pages if isinstance(p, dict) and p.get("type") == "img" and p.get("image_url"))
+        if rendered_imgs == 0:
+            manga.status = "error"
+            manga.enhance_message = "Image generation failed — no panels were created."
+        else:
+            manga.status = "preview" if preview_only else "complete"
         db.commit()
 
     except Exception as e:
@@ -405,7 +411,8 @@ async def create_manga(
         except Exception:
             caption_list = []
 
-    manga = Manga(user_id=user_id or None, subject_name=subject_name, subject_description=description)
+    # Public by default so share links work immediately (owner can toggle private later)
+    manga = Manga(user_id=user_id or None, subject_name=subject_name, subject_description=description, is_public=True)
     db.add(manga)
     db.commit()
     db.refresh(manga)
